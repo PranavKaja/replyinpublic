@@ -230,23 +230,44 @@ async def api_ingest(request: Request, token: str = "") -> dict:
 
 
 @app.get("/api/copilot")
-def copilot(mention_id: int, posted_at: str, token: str = "") -> dict:
+def copilot(mention_id: int, posted_at: str = "", token: str = "") -> dict:
     if not _copilot_allowed(token):
         return {"passages": [], "reply": "copilot token required"}
     load_env()
     key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if posted_at:
+        posted_at = posted_at.strip().replace(" ", "+")
+
     with db() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT m.text, m.brand_id, b.name
-                FROM mentions m
-                JOIN brands b ON b.id = m.brand_id
-                WHERE m.id = %s AND m.posted_at = %s
-                """,
-                (mention_id, posted_at),
-            )
-            row = cur.fetchone()
+            row = None
+            if posted_at:
+                try:
+                    cur.execute(
+                        """
+                        SELECT m.text, m.brand_id, b.name
+                        FROM mentions m
+                        JOIN brands b ON b.id = m.brand_id
+                        WHERE m.id = %s AND m.posted_at = %s
+                        """,
+                        (mention_id, posted_at),
+                    )
+                    row = cur.fetchone()
+                except Exception:
+                    conn.rollback()
+            if not row:
+                cur.execute(
+                    """
+                    SELECT m.text, m.brand_id, b.name
+                    FROM mentions m
+                    JOIN brands b ON b.id = m.brand_id
+                    WHERE m.id = %s
+                    LIMIT 1
+                    """,
+                    (mention_id,),
+                )
+                row = cur.fetchone()
+
             if not row:
                 return {"passages": [], "reply": "not in the manuals, send to the brand's support person"}
             text, brand_id, brand_name = row
