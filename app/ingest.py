@@ -160,6 +160,15 @@ def ingest_records(conn, items: list[dict]) -> dict:
     except Exception:
         labeled = 0
 
+    # Automatically run Gemini categorization on newly added mentions
+    gemini_labeled = 0
+    if added > 0:
+        try:
+            from app.segment import label_gemini
+            gemini_labeled, _ = label_gemini(conn, limit_batches=max(1, (added + 29) // 30))
+        except Exception:
+            gemini_labeled = 0
+
     return {
         "status": "ok",
         "total_received": len(items),
@@ -167,4 +176,5 @@ def ingest_records(conn, items: list[dict]) -> dict:
         "duplicates": duplicates,
         "rejected": rejected,
         "rule_labeled": labeled,
+        "gemini_labeled": gemini_labeled,
     }

@@ -95,7 +95,7 @@ def main():
     print(
         f"[SUCCESS] Ingest complete: {res['added']} added, "
         f"{res['duplicates']} duplicates skipped, {res['rejected']} rejected, "
-        f"{res['rule_labeled']} categorized."
+        f"{res.get('gemini_labeled', 0)} categorized by Gemini."
     )
 
 
