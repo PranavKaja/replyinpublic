@@ -49,6 +49,8 @@
     p { margin: 0; white-space: pre-wrap; }
     a { color: var(--ink); }
     .reply { margin-top: 8px; color: var(--green); font-size: 15px; }
+    #copilot { margin-top: 12px; padding: 14px; border: 1px solid var(--ink); background: var(--card); }
+    #copilot article { margin-top: 10px; }
     @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -62,7 +64,10 @@
   </header>
   <main class="layout">
     <nav id="brands"></nav>
-    <section id="comments"></section>
+    <section>
+      <div id="copilot" hidden></div>
+      <div id="comments"></div>
+    </section>
   </main>
   <script>
     let selected = "";
@@ -71,7 +76,7 @@
       const query = new URLSearchParams({ brand: selected, unanswered: "1" });
       const data = await fetch("/api/preview?" + query).then((r) => r.json());
       const stats = document.getElementById("stats");
-      stats.textContent = data.visible + " shown after noise is removed. " + data.total + " stored. Focus brands: Instant Pot, KitchenAid, Traeger, Ninja, De'Longhi.";
+      stats.textContent = data.visible + " shown after noise is removed. " + data.total + " stored. Focus: " + data.brands.filter((brand) => brand.focus).map((brand) => brand.name).join(", ") + ".";
       const seg = document.getElementById("segments");
       seg.textContent = data.segments.map((item) => item.type + " " + item.count).join(" · ");
       const days = document.getElementById("days");
@@ -131,7 +136,13 @@
         link.href = comment.url;
         link.target = "_blank";
         link.rel = "noreferrer";
-        link.textContent = "Open on YouTube";
+        const plat = comment.platform ? comment.platform.charAt(0).toUpperCase() + comment.platform.slice(1) : "Source";
+        link.textContent = "Open on " + plat;
+        card.style.cursor = "pointer";
+        card.onclick = (event) => {
+          if (event.target.closest("a")) return;
+          openCopilot(comment);
+        };
         card.append(meta, body, link);
         if (comment.reply_text) {
           const reply = document.createElement("p");
@@ -141,6 +152,35 @@
         }
         list.appendChild(card);
       }
+    }
+    function openCopilot(comment) {
+      const box = document.getElementById("copilot");
+      box.hidden = false;
+      box.textContent = "Reading the manuals.";
+      const query = new URLSearchParams({
+        mention_id: comment.id,
+        posted_at: comment.posted_at,
+      });
+      fetch("/api/copilot?" + query).then((response) => response.json()).then((data) => {
+        box.replaceChildren();
+        const reply = document.createElement("p");
+        reply.textContent = data.reply;
+        box.appendChild(reply);
+        for (const passage of data.passages || []) {
+          const block = document.createElement("article");
+          const text = document.createElement("p");
+          text.textContent = passage.text.slice(0, 500);
+          const link = document.createElement("a");
+          link.href = passage.source_url;
+          link.target = "_blank";
+          link.rel = "noreferrer";
+          link.textContent = passage.source_url;
+          block.append(text, link);
+          box.appendChild(block);
+        }
+      }).catch(() => {
+        box.textContent = "not in the manuals, send to the brand's support person";
+      });
     }
     load();
     setInterval(load, 15000);

@@ -1,13 +1,15 @@
 """Local preview of the comments already stored in Tiger."""
 
 import json
+import os
 import threading
+import urllib.request
 from datetime import datetime
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 
-from app.db import ROOT, connect
+from app.db import ROOT, connect, load_env
 
 app = FastAPI(title="ReplyInPublic")
 _conn = None
@@ -116,7 +118,7 @@ def _preview(brand: str, unanswered: int) -> dict:
             params.append(80)
             cur.execute(
                 f"""
-                SELECT b.name, m.author, m.text, m.url, m.posted_at,
+                SELECT m.id, b.id, b.name, m.author, m.text, m.url, m.posted_at,
                        m.brand_replied, m.surface, m.reply_text, l.type, m.platform
                 FROM mentions m
                 JOIN brands b ON b.id = m.brand_id
@@ -129,6 +131,8 @@ def _preview(brand: str, unanswered: int) -> dict:
             )
             comments = [
                 {
+                    "id": mention_id,
+                    "brand_id": brand_id,
                     "brand": name,
                     "author": author,
                     "text": text,
@@ -140,7 +144,7 @@ def _preview(brand: str, unanswered: int) -> dict:
                     "type": kind,
                     "platform": platform,
                 }
-                for name, author, text, url, posted_at, replied, surface, reply_text, kind, platform in cur.fetchall()
+                for mention_id, brand_id, name, author, text, url, posted_at, replied, surface, reply_text, kind, platform in cur.fetchall()
             ]
     return {
         "total": total,
@@ -158,3 +162,107 @@ def _preview(brand: str, unanswered: int) -> dict:
         "brands": brands,
         "comments": comments,
     }
+
+
+def _embed(key: str, text: str) -> list[float]:
+    body = json.dumps({
+        "content": {"parts": [{"text": text[:6000]}]},
+        "outputDimensionality": 768,
+    }).encode()
+    request = urllib.request.Request(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=" + key,
+        data=body,
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(request, timeout=60) as response:
+        payload = json.load(response)
+    return payload["embedding"]["values"]
+
+
+@app.get("/api/copilot")
+def copilot(mention_id: int, posted_at: str) -> dict:
+    load_env()
+    key = os.environ.get("GEMINI_API_KEY", "").strip()
+    with db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT m.text, m.brand_id, b.name
+                FROM mentions m
+                JOIN brands b ON b.id = m.brand_id
+                WHERE m.id = %s AND m.posted_at = %s
+                """,
+                (mention_id, posted_at),
+            )
+            row = cur.fetchone()
+            if not row:
+                return {"passages": [], "reply": "not in the manuals, send to the brand's support person"}
+            text, brand_id, brand_name = row
+            passages = []
+            try:
+                vector = _embed(key, text)
+                cur.execute(
+                    """
+                    SELECT text, source_url, embedding <=> %s::vector AS distance
+                    FROM kb_chunks
+                    WHERE brand_id = %s AND embedding IS NOT NULL
+                    ORDER BY embedding <=> %s::vector
+                    LIMIT 3
+                    """,
+                    (str(vector), brand_id, str(vector)),
+                )
+                passages = [
+                    {"text": chunk, "source_url": url, "distance": float(distance)}
+                    for chunk, url, distance in cur.fetchall()
+                ]
+            except Exception:
+                passages = []
+            if not passages:
+                words = {word.lower() for word in text.split() if len(word) > 3}
+                cur.execute(
+                    "SELECT text, source_url FROM kb_chunks WHERE brand_id = %s",
+                    (brand_id,),
+                )
+                scored = []
+                for chunk, url in cur.fetchall():
+                    overlap = sum(1 for word in words if word in chunk.lower())
+                    scored.append((overlap, chunk, url))
+                scored.sort(reverse=True)
+                passages = [
+                    {"text": chunk, "source_url": url, "distance": None}
+                    for overlap, chunk, url in scored[:3]
+                    if overlap > 0
+                ]
+    if not passages:
+        return {"passages": [], "reply": "not in the manuals, send to the brand's support person"}
+    packed = "\n\n".join(
+        f"Source: {item['source_url']}\n{item['text']}" for item in passages
+    )
+    prompt = (
+        f"The brand is {brand_name}. A customer wrote:\n{text}\n\n"
+        "Use only the manual passages below. Do not add facts that are not in them. "
+        "If they do not answer the customer, reply with exactly: "
+        "not in the manuals, send to the brand's support person\n"
+        "Otherwise write a short public reply in one or two sentences.\n\n"
+        + packed
+    )
+    body = json.dumps({
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.2},
+    }).encode()
+    request = urllib.request.Request(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=" + key,
+        data=body,
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            payload = json.load(response)
+        reply = ""
+        for candidate in payload.get("candidates") or []:
+            for part in (candidate.get("content") or {}).get("parts") or []:
+                reply += part.get("text") or ""
+        reply = reply.strip() or "not in the manuals, send to the brand's support person"
+    except Exception:
+        reply = "not in the manuals, send to the brand's support person"
+    return {"passages": passages, "reply": reply}
