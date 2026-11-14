@@ -12,7 +12,7 @@ PY=python3.12
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq git curl ca-certificates caddy software-properties-common build-essential
+apt-get install -y -qq git curl ca-certificates caddy software-properties-common build-essential python3-venv python3.12-venv
 if ! command -v "$PY" >/dev/null 2>&1; then
   add-apt-repository -y ppa:deadsnakes/ppa
   apt-get update -qq
