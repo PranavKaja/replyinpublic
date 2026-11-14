@@ -26,7 +26,10 @@
     header { padding-bottom: 0; }
     h1 { font-size: 34px; font-weight: 500; margin: 0 0 6px; }
     .sub { color: var(--muted); margin: 0; }
-    .stats { display: flex; gap: 18px; margin: 18px 0 0; color: var(--muted); font-family: ui-sans-serif, sans-serif; font-size: 13px; }
+    .stats { margin: 14px 0 0; color: var(--muted); font-family: ui-sans-serif, sans-serif; font-size: 13px; }
+    .days { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .day { display: flex; align-items: center; gap: 6px; font: 12px ui-sans-serif, sans-serif; color: var(--muted); }
+    .day span:first-child { display: inline-block; height: 8px; background: #9c3418; }
     .layout { display: grid; grid-template-columns: 240px 1fr; gap: 22px; }
     button {
       display: flex; justify-content: space-between; width: 100%;
@@ -54,6 +57,8 @@
     <h1>ReplyInPublic</h1>
     <p class="sub">Public comments brands have not answered.</p>
     <p class="stats" id="stats">Loading comments from Tiger.</p>
+    <p class="stats" id="segments"></p>
+    <div class="days" id="days"></div>
   </header>
   <main class="layout">
     <nav id="brands"></nav>
@@ -66,12 +71,27 @@
       const query = new URLSearchParams({ brand: selected, unanswered: "1" });
       const data = await fetch("/api/preview?" + query).then((r) => r.json());
       const stats = document.getElementById("stats");
-      stats.textContent = data.total + " comments stored. Last pass added " + data.run.added + ", rejected " + data.run.rejected + ", used " + data.run.units + " YouTube units.";
+      stats.textContent = data.visible + " shown after noise is removed. " + data.total + " stored. Focus brands: Instant Pot, KitchenAid, Traeger, Ninja, De'Longhi.";
+      const seg = document.getElementById("segments");
+      seg.textContent = data.segments.map((item) => item.type + " " + item.count).join(" · ");
+      const days = document.getElementById("days");
+      const max = Math.max(1, ...data.days.map((item) => item.count));
+      days.replaceChildren();
+      for (const item of data.days) {
+        const row = document.createElement("div");
+        row.className = "day";
+        const bar = document.createElement("span");
+        bar.style.width = Math.max(4, Math.round(item.count / max * 120)) + "px";
+        const label = document.createElement("span");
+        label.textContent = item.day + " " + item.count;
+        row.append(bar, label);
+        days.appendChild(row);
+      }
       const nav = document.getElementById("brands");
       nav.replaceChildren();
       const all = document.createElement("button");
       all.className = selected ? "" : "on";
-      all.textContent = "All brands";
+      all.textContent = "Focus five";
       all.onclick = () => { selected = ""; load(); };
       nav.appendChild(all);
       for (const brand of data.brands) {
@@ -100,7 +120,7 @@
         meta.className = "meta";
         const when = comment.posted_at.replace("T", " ").slice(0, 16);
         const state = comment.brand_replied === false ? "unanswered" : (comment.brand_replied ? "replied" : "unknown");
-        meta.textContent = comment.brand + " · " + (comment.author || "someone") + " · " + comment.surface + " · " + when + " · ";
+        meta.textContent = comment.brand + " · " + (comment.platform || "youtube") + " · " + (comment.author || "someone") + " · " + comment.surface + " · " + when + " · ";
         const mark = document.createElement("span");
         mark.className = state === "unanswered" ? "unanswered" : (state === "replied" ? "replied" : "");
         mark.textContent = state;

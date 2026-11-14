@@ -24,6 +24,8 @@ Copy `.env.example` to `.env` and set:
 ```
 .venv\Scripts\python -m app.schema
 .venv\Scripts\python -m app.worker
+.venv\Scripts\python -m app.segment
+.venv\Scripts\python -m app.collect_social
 .venv\Scripts\python -m uvicorn app.main:app --port 8765
 ```
 
