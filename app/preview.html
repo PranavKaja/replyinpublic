@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ReplyInPublic</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1c1915;
+      --muted: #5c564c;
+      --line: #e4dccd;
+      --paper: #f7f3ec;
+      --card: #fffdf8;
+      --red: #9c3418;
+      --green: #1f6b45;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 16px/1.45 Georgia, "Iowan Old Style", serif;
+    }
+    header, main { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
+    header { padding-bottom: 0; }
+    h1 { font-size: 34px; font-weight: 500; margin: 0 0 6px; }
+    .sub { color: var(--muted); margin: 0; }
+    .stats { display: flex; gap: 18px; margin: 18px 0 0; color: var(--muted); font-family: ui-sans-serif, sans-serif; font-size: 13px; }
+    .layout { display: grid; grid-template-columns: 240px 1fr; gap: 22px; }
+    button {
+      display: flex; justify-content: space-between; width: 100%;
+      margin: 0 0 6px; padding: 10px 12px; border: 1px solid var(--line);
+      background: var(--card); color: var(--ink); text-align: left;
+      font: 14px/1.3 ui-sans-serif, sans-serif; cursor: pointer;
+    }
+    button.on { border-color: var(--ink); }
+    .count { color: var(--red); }
+    article {
+      background: var(--card); border: 1px solid var(--line);
+      padding: 14px 16px; margin: 0 0 10px;
+    }
+    .meta { font: 12px/1.3 ui-sans-serif, sans-serif; color: var(--muted); margin-bottom: 6px; }
+    .unanswered { color: var(--red); }
+    .replied { color: var(--green); }
+    p { margin: 0; white-space: pre-wrap; }
+    a { color: var(--ink); }
+    .reply { margin-top: 8px; color: var(--green); font-size: 15px; }
+    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ReplyInPublic</h1>
+    <p class="sub">Public comments brands have not answered.</p>
+    <p class="stats" id="stats">Loading comments from Tiger.</p>
+  </header>
+  <main class="layout">
+    <nav id="brands"></nav>
+    <section id="comments"></section>
+  </main>
+  <script>
+    let selected = "";
+    function esc(node, text) { node.textContent = text || ""; }
+    async function load() {
+      const query = new URLSearchParams({ brand: selected, unanswered: "1" });
+      const data = await fetch("/api/preview?" + query).then((r) => r.json());
+      const stats = document.getElementById("stats");
+      stats.textContent = data.total + " comments stored. Last pass added " + data.run.added + ", rejected " + data.run.rejected + ", used " + data.run.units + " YouTube units.";
+      const nav = document.getElementById("brands");
+      nav.replaceChildren();
+      const all = document.createElement("button");
+      all.className = selected ? "" : "on";
+      all.textContent = "All brands";
+      all.onclick = () => { selected = ""; load(); };
+      nav.appendChild(all);
+      for (const brand of data.brands) {
+        const button = document.createElement("button");
+        button.className = brand.id === selected ? "on" : "";
+        const name = document.createElement("span");
+        esc(name, brand.name);
+        const count = document.createElement("span");
+        count.className = "count";
+        count.textContent = brand.unanswered_14d;
+        button.append(name, count);
+        button.onclick = () => { selected = brand.id; load(); };
+        nav.appendChild(button);
+      }
+      const list = document.getElementById("comments");
+      list.replaceChildren();
+      if (!data.comments.length) {
+        const empty = document.createElement("p");
+        empty.className = "sub";
+        empty.textContent = "No unanswered comments in this view.";
+        list.appendChild(empty);
+      }
+      for (const comment of data.comments) {
+        const card = document.createElement("article");
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        const when = comment.posted_at.replace("T", " ").slice(0, 16);
+        const state = comment.brand_replied === false ? "unanswered" : (comment.brand_replied ? "replied" : "unknown");
+        meta.textContent = comment.brand + " · " + (comment.author || "someone") + " · " + comment.surface + " · " + when + " · ";
+        const mark = document.createElement("span");
+        mark.className = state === "unanswered" ? "unanswered" : (state === "replied" ? "replied" : "");
+        mark.textContent = state;
+        meta.appendChild(mark);
+        const body = document.createElement("p");
+        esc(body, comment.text);
+        const link = document.createElement("a");
+        link.href = comment.url;
+        link.target = "_blank";
+        link.rel = "noreferrer";
+        link.textContent = "Open on YouTube";
+        card.append(meta, body, link);
+        if (comment.reply_text) {
+          const reply = document.createElement("p");
+          reply.className = "reply";
+          esc(reply, "Brand reply: " + comment.reply_text);
+          card.appendChild(reply);
+        }
+        list.appendChild(card);
+      }
+    }
+    load();
+    setInterval(load, 15000);
+  </script>
+</body>
+</html>

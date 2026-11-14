@@ -24,6 +24,7 @@ Copy `.env.example` to `.env` and set:
 ```
 .venv\Scripts\python -m app.schema
 .venv\Scripts\python -m app.worker
+.venv\Scripts\python -m uvicorn app.main:app --port 8765
 ```
 
 The worker runs once and exits. Run it again when you want a refresh. A video fetched less than 30 minutes ago is skipped. Each brand is searched at most twice per Eastern day. The first two runs of a day each spend one discovery pass. Later runs only refresh comments on the stored video ids.
