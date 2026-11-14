@@ -1,0 +1,203 @@
+{
+  "note": "Derived from digest/watchlists/kitchen.json (verified handles). x_handle added only where seen on X: TraegerGrills confirmed 2026-11-10. search_terms added 2026-11-10 for finding other people's videos about the brand.",
+  "brands": [
+    {
+      "brand_id": "breville",
+      "name": "Breville",
+      "youtube_channel_id": "UCc1E8Ag-7GHkV5ElQrFRBSA",
+      "youtube_handle": "@breville",
+      "instagram_handle": "breville",
+      "own_handles": [],
+      "search_terms": [
+        "Breville"
+      ]
+    },
+    {
+      "brand_id": "fellow",
+      "name": "Fellow",
+      "youtube_channel_id": "UCrtS-B4xQtbNVnyqC4lSSHg",
+      "youtube_handle": "@fellowproducts",
+      "instagram_handle": "fellowproducts",
+      "own_handles": [],
+      "search_terms": [
+        "Fellow Stagg",
+        "Fellow Ode"
+      ]
+    },
+    {
+      "brand_id": "delonghi",
+      "name": "De'Longhi",
+      "youtube_channel_id": "UCYMkDbjIsC4Wb4j0_kqnAOA",
+      "youtube_handle": "@delonghi",
+      "instagram_handle": "delonghiofficial",
+      "own_handles": [],
+      "search_terms": [
+        "De'Longhi",
+        "Delonghi"
+      ]
+    },
+    {
+      "brand_id": "nespresso",
+      "name": "Nespresso",
+      "youtube_channel_id": "UCdrsm2O-1i3zl5K0lVOEC2A",
+      "youtube_handle": "@nespresso",
+      "instagram_handle": "nespresso",
+      "own_handles": [],
+      "search_terms": [
+        "Nespresso"
+      ]
+    },
+    {
+      "brand_id": "ninja",
+      "name": "Ninja",
+      "youtube_channel_id": "UCxZwK4llrNHpEwaO91aE8sw",
+      "youtube_handle": "@ninjakitchen",
+      "instagram_handle": "ninjakitchen",
+      "own_handles": [],
+      "search_terms": [
+        "Ninja Creami",
+        "Ninja air fryer",
+        "Ninja Foodi"
+      ]
+    },
+    {
+      "brand_id": "instant",
+      "name": "Instant Pot",
+      "youtube_channel_id": "UCb63DhTeGVD_PSWswe9Jlng",
+      "youtube_handle": "@instantpot",
+      "instagram_handle": "instantpotofficial",
+      "own_handles": [],
+      "search_terms": [
+        "Instant Pot"
+      ]
+    },
+    {
+      "brand_id": "vitamix",
+      "name": "Vitamix",
+      "youtube_channel_id": "UCmEreaE58Iyxx9WFNA-rlug",
+      "youtube_handle": "@vitamixcorporation",
+      "instagram_handle": "vitamix",
+      "own_handles": [],
+      "search_terms": [
+        "Vitamix"
+      ]
+    },
+    {
+      "brand_id": "anova",
+      "name": "Anova",
+      "youtube_channel_id": "UC9AmpFpAaDWRN9Lh4KilgXg",
+      "youtube_handle": "@anovaculinary",
+      "instagram_handle": "anovaculinary",
+      "own_handles": [],
+      "search_terms": [
+        "Anova sous vide",
+        "Anova oven"
+      ]
+    },
+    {
+      "brand_id": "meater",
+      "name": "Meater",
+      "youtube_channel_id": "UCqZBcvI4vokui6BkDfDNrBQ",
+      "youtube_handle": "@meater",
+      "instagram_handle": "meatermade",
+      "own_handles": [],
+      "search_terms": [
+        "Meater thermometer"
+      ]
+    },
+    {
+      "brand_id": "traeger",
+      "name": "Traeger",
+      "youtube_channel_id": "UCAPurPyFOTA47NvS5K0UhBg",
+      "youtube_handle": "@traegergrills",
+      "instagram_handle": "traegergrills",
+      "x_handle": "TraegerGrills",
+      "own_handles": [
+        "traegersupport"
+      ],
+      "search_terms": [
+        "Traeger"
+      ]
+    },
+    {
+      "brand_id": "solostove",
+      "name": "Solo Stove",
+      "youtube_channel_id": "UCVztOJ7K9JaNTuhyHFsZz1w",
+      "youtube_handle": "@solostove",
+      "instagram_handle": "solostove",
+      "own_handles": [],
+      "search_terms": [
+        "Solo Stove"
+      ]
+    },
+    {
+      "brand_id": "ourplace",
+      "name": "Our Place",
+      "youtube_channel_id": "UCRkTXeIfHiYdAnE8yr-AE-w",
+      "youtube_handle": "@fromourplace",
+      "instagram_handle": "ourplace",
+      "own_handles": [],
+      "search_terms": [
+        "Our Place Always Pan",
+        "Our Place cookware"
+      ]
+    },
+    {
+      "brand_id": "caraway",
+      "name": "Caraway",
+      "youtube_channel_id": "UCJsXvgPNLuAnfgdbkvTxEbQ",
+      "youtube_handle": "@carawayhome",
+      "instagram_handle": "caraway_home",
+      "own_handles": [],
+      "search_terms": [
+        "Caraway cookware",
+        "Caraway pan"
+      ]
+    },
+    {
+      "brand_id": "kitchenaid",
+      "name": "KitchenAid",
+      "youtube_channel_id": "UC7JxhNtzu-w-tPUw0_np3BQ",
+      "youtube_handle": "@kitchenaid",
+      "instagram_handle": "kitchenaidusa",
+      "own_handles": [],
+      "search_terms": [
+        "KitchenAid"
+      ]
+    },
+    {
+      "brand_id": "lamarzocco",
+      "name": "La Marzocco",
+      "youtube_channel_id": "UCcrhb5T58AIOQWggGc8nyZA",
+      "youtube_handle": "@lamarzoccohome",
+      "instagram_handle": "lamarzoccohome",
+      "own_handles": [],
+      "search_terms": [
+        "La Marzocco"
+      ]
+    },
+    {
+      "brand_id": "lodge",
+      "name": "Lodge",
+      "youtube_channel_id": "UCf__y6rezHrnaafvKBrS6nQ",
+      "youtube_handle": "@lodgecastiron",
+      "instagram_handle": "lodgecastiron",
+      "own_handles": [],
+      "search_terms": [
+        "Lodge cast iron"
+      ]
+    },
+    {
+      "brand_id": "madein",
+      "name": "Made In",
+      "youtube_channel_id": "UC7DtPpBFDPilyPLVQUa2SQw",
+      "youtube_handle": "@madeincookware",
+      "instagram_handle": "madein",
+      "own_handles": [],
+      "search_terms": [
+        "Made In cookware",
+        "Made In pan"
+      ]
+    }
+  ]
+}
