@@ -131,7 +131,7 @@ def label_rules(conn) -> int:
     return kept
 
 
-def label_gemini(conn, limit_batches: int = 24) -> tuple[int, str]:
+def label_gemini(conn, limit_batches: int = 40) -> tuple[int, str]:
     load_env()
     key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not key:
@@ -139,15 +139,15 @@ def label_gemini(conn, limit_batches: int = 24) -> tuple[int, str]:
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT m.id, m.posted_at, m.text
+            SELECT m.id, m.posted_at, b.name, m.text
             FROM mentions m
             JOIN brands b ON b.id = m.brand_id
+            LEFT JOIN labels l ON l.mention_id = m.id AND l.posted_at = m.posted_at
             WHERE b.id = ANY(%s)
-              AND NOT EXISTS (
-                SELECT 1 FROM labels l
-                WHERE l.mention_id = m.id AND l.posted_at = m.posted_at
-              )
-            ORDER BY m.posted_at DESC
+              AND COALESCE(l.relevant, true) IS TRUE
+              AND COALESCE(l.model, '') NOT LIKE '%%-meaning'
+              AND m.brand_replied IS NOT TRUE
+            ORDER BY (position(lower(b.name) in lower(m.text)) > 0), m.posted_at DESC
             LIMIT %s
             """,
             (list(FOCUS), limit_batches * BATCH),
@@ -165,7 +165,7 @@ def label_gemini(conn, limit_batches: int = 24) -> tuple[int, str]:
         except Exception as exc:
             note = f"{exc.__class__.__name__}: {exc}"
             break
-        by_id = {str(mention_id): (mention_id, posted_at) for mention_id, posted_at, _ in chunk}
+        by_id = {str(mention_id): (mention_id, posted_at) for mention_id, posted_at, _brand, _text in chunk}
         for item in found:
             pair = by_id.get(str(item.get("mention_id")))
             if not pair:
@@ -173,7 +173,6 @@ def label_gemini(conn, limit_batches: int = 24) -> tuple[int, str]:
             kind = item.get("type") if item.get("type") in {
                 "question", "complaint", "praise", "purchase_intent", "noise"
             } else "noise"
-            relevant = kind != "noise"
             save_label(conn, pair[0], pair[1], {
                 "type": kind,
                 "sentiment": item.get("sentiment") if item.get("sentiment") in {
@@ -183,8 +182,8 @@ def label_gemini(conn, limit_batches: int = 24) -> tuple[int, str]:
                     "low", "medium", "high"
                 } else "low",
                 "is_buyer": kind == "purchase_intent",
-                "relevant": relevant,
-                "model": model,
+                "relevant": kind != "noise",
+                "model": f"{model}-meaning",
                 "topic": (item.get("topic") or "")[:80] or None,
             })
             labeled += 1
@@ -199,16 +198,24 @@ class QuotaError(RuntimeError):
 
 def ask_gemini(key: str, chunk: list) -> tuple[list, str]:
     lines = []
-    for mention_id, _posted, text in chunk:
+    for mention_id, _posted, brand, text in chunk:
         flat = " ".join((text or "").split())
-        lines.append(f"{mention_id}\t{flat[:500]}")
+        lines.append(f"{mention_id}\t{brand}\t{flat[:500]}")
     prompt = (
-        "Classify each public comment about a kitchen brand. "
+        "You read each comment in whatever language it uses, including other languages "
+        "written with English letters, such as Telugu or Hindi in Latin script. "
+        "A brand support team should only see comments about that brand's own product. "
         "Return a JSON array only. Each object has mention_id, type, sentiment, urgency, topic. "
         "type is question, complaint, praise, purchase_intent, or noise. "
-        "noise means jokes, spam, emoji, empty reactions, or chatter that is not about the product. "
+        "Use noise when the comment is about the video, the creator, a joke, a show, a place, "
+        "food in general, or another company's product, or when it is not useful to the brand. "
+        "Use question, complaint, praise, or purchase_intent only when the comment is about "
+        "the named brand's product. If you are not sure, use noise. "
         "sentiment is negative, neutral, or positive. urgency is low, medium, or high. "
-        "topic is 1 to 3 words or an empty string. Echo mention_id exactly.\n"
+        "topic is 1 to 3 words, or empty. Echo mention_id exactly.\n"
+        "Examples of noise: 'Supposedly the grass fed beef from Walmart is also grass finished.' "
+        "under Instant Pot. '800 ana Tirupati lo'. 'Braking bad ala vachi velladu'.\n"
+        "Example of a complaint: 'The sealing ring smells after a week' under Instant Pot.\n"
         + "\n".join(lines)
     )
     last = "no model"
@@ -228,7 +235,7 @@ def ask_gemini(key: str, chunk: list) -> tuple[list, str]:
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", "replace")[:180]
             last = f"{model} HTTP {exc.code} {detail}"
-            if exc.code in (429, 404, 400):
+            if exc.code in (429, 404, 400, 503):
                 if exc.code == 429 and model == MODELS[-1]:
                     raise QuotaError(last)
                 continue
