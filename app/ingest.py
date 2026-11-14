@@ -1,27 +1,47 @@
-"""Ingestion helper for Grok and external social mentions."""
+"""Bulletproof ingestion engine for Grok and external social mentions.
+Handles all edge cases: multi-platform, variable schemas, dirty formatting, null bytes, dedup.
+"""
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import re
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 from app.collect_social import insert_row
 from app.segment import label_rules
 
 BRAND_ALIASES = {
+    # Instant
     "instant pot": "instant",
     "instantpot": "instant",
     "instant": "instant",
+    "instant brands": "instant",
+    # KitchenAid
     "kitchenaid": "kitchenaid",
     "kitchen aid": "kitchenaid",
+    "kitchenaidusa": "kitchenaid",
+    # Traeger
     "traeger": "traeger",
+    "traeger grills": "traeger",
+    "traegergrills": "traeger",
+    # Ninja
     "ninja": "ninja",
     "ninjakitchen": "ninja",
+    "sharkninja": "ninja",
+    "shark ninja": "ninja",
+    # De'Longhi
     "delonghi": "delonghi",
     "de'longhi": "delonghi",
     "de longhi": "delonghi",
+    "dinamica": "delonghi",
+    "magnifica": "delonghi",
+    "specialista": "delonghi",
+    "dedica": "delonghi",
+    # Other known brands
     "nespresso": "nespresso",
     "breville": "breville",
     "vitamix": "vitamix",
@@ -55,47 +75,159 @@ def resolve_brand(brand_input: str, text: str) -> str:
     for alias, bid in BRAND_ALIASES.items():
         if alias in text_lower:
             return bid
-    return "instant"  # fallback default
+
+    # Fallback to instant if unknown
+    return "instant"
+
+
+def detect_platform(raw_plat: str, url: str) -> str:
+    p = (raw_plat or "").lower().strip()
+    if p in {"youtube", "instagram", "tiktok", "x", "twitter", "reddit", "facebook", "amazon", "trustpilot", "threads", "bluesky", "bbb", "web"}:
+        return "x" if p == "twitter" else p
+
+    url_lower = (url or "").lower()
+    if "twitter.com" in url_lower or "x.com" in url_lower:
+        return "x"
+    if "youtube.com" in url_lower or "youtu.be" in url_lower:
+        return "youtube"
+    if "instagram.com" in url_lower:
+        return "instagram"
+    if "tiktok.com" in url_lower:
+        return "tiktok"
+    if "reddit.com" in url_lower:
+        return "reddit"
+    if "amazon." in url_lower:
+        return "amazon"
+    if "trustpilot.com" in url_lower:
+        return "trustpilot"
+    if "threads.net" in url_lower:
+        return "threads"
+    if "bsky.app" in url_lower:
+        return "bluesky"
+    if "facebook.com" in url_lower:
+        return "facebook"
+    if "bbb.org" in url_lower:
+        return "bbb"
+
+    if url:
+        try:
+            domain = urlparse(url).netloc.lower()
+            if domain:
+                parts = domain.replace("www.", "").split(".")
+                if parts and len(parts[0]) > 2:
+                    return re.sub(r"[^a-z0-9]", "", parts[0])
+        except Exception:
+            pass
+
+    return p or "web"
+
+
+def parse_timestamp(raw_val) -> str:
+    if not raw_val:
+        return datetime.now(timezone.utc).isoformat()
+    if isinstance(raw_val, datetime):
+        if raw_val.tzinfo is None:
+            raw_val = raw_val.replace(tzinfo=timezone.utc)
+        return raw_val.isoformat()
+    if isinstance(raw_val, (int, float)):
+        try:
+            ts = float(raw_val)
+            if ts > 1e11:  # milliseconds
+                ts /= 1000.0
+            return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+        except Exception:
+            return datetime.now(timezone.utc).isoformat()
+
+    val_str = str(raw_val).strip()
+    # Normalize common ISO string formats
+    val_str = val_str.replace("Z", "+00:00")
+    try:
+        dt = datetime.fromisoformat(val_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.isoformat()
+    except Exception:
+        pass
+
+    # Try common date formats
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y"):
+        try:
+            dt = datetime.strptime(val_str, fmt).replace(tzinfo=timezone.utc)
+            return dt.isoformat()
+        except Exception:
+            pass
+
+    return datetime.now(timezone.utc).isoformat()
+
+
+def extract_native_id(url: str, text: str, platform: str) -> str:
+    if url:
+        # Common status/post ID regex
+        match = re.search(r"/(?:status|p|comments|reviews)/([0-9a-zA-Z_-]+)", url)
+        if match:
+            return match.group(1)[:40]
+    # Fallback to hash
+    return hashlib.sha256((url or text).encode("utf-8")).hexdigest()[:24]
+
+
+def get_field(item: dict, *keys: str, default="") -> str:
+    for k in keys:
+        if k in item and item[k] is not None:
+            return str(item[k]).strip()
+    item_lower = {k.lower().replace("_", "").replace("-", ""): v for k, v in item.items() if v is not None}
+    for k in keys:
+        norm_k = k.lower().replace("_", "").replace("-", "")
+        if norm_k in item_lower:
+            return str(item_lower[norm_k]).strip()
+    return default
 
 
 def normalize_mention(item: dict) -> dict | None:
-    text = str(item.get("text") or "").strip()
-    if not text:
+    if not isinstance(item, dict):
         return None
 
-    brand_id = resolve_brand(str(item.get("brand_id") or item.get("brand") or ""), text)
-    platform = str(item.get("platform") or "x").lower().strip()
-    surface = str(item.get("surface") or "earned").lower().strip()
-    author = str(item.get("author") or item.get("username") or "x_user").strip()
+    # Text resolution across all known key variants (case-insensitive)
+    text = get_field(item, "text", "comment", "content", "body", "message", "description", "post", "review", "complaint")
+    # Strip null bytes (PostgreSQL fatal error) and control chars
+    text = text.replace("\x00", "").strip()
+    if not text:
+        return None
+    text = text[:8000]
 
-    posted_at_raw = item.get("posted_at")
-    if posted_at_raw:
-        if isinstance(posted_at_raw, datetime):
-            posted_at = posted_at_raw.isoformat()
-        else:
-            posted_at = str(posted_at_raw).strip()
-    else:
-        posted_at = datetime.now(timezone.utc).isoformat()
+    # URL resolution
+    url = get_field(item, "url", "link", "permalink", "source_url", "uri", "web_url")
 
-    url = str(item.get("url") or "").strip()
+    # Platform resolution
+    raw_plat = get_field(item, "platform", "site", "website", "source", "channel")
+    platform = detect_platform(raw_plat, url)
+
+    # Author resolution
+    author = get_field(item, "author", "username", "user", "handle", "screen_name", "reviewer", default=f"{platform}_user")
+
+    # Brand resolution
+    raw_brand = get_field(item, "brand_id", "brand", "brandName", "company", "target", "product")
+    brand_id = resolve_brand(raw_brand, text)
+
+    # Timestamp
+    raw_time = item.get("posted_at") or item.get("created_at") or item.get("timestamp") or item.get("date") or item.get("time") or item.get("published_at")
+    if not raw_time:
+        raw_time = get_field(item, "posted_at", "created_at", "timestamp", "date", "time", "published_at")
+    posted_at = parse_timestamp(raw_time)
+
+    # Native ID
     native_id = str(item.get("native_id") or item.get("id") or "").strip()
-
     if not native_id:
-        # Check if URL contains tweet ID
-        match = re.search(r"status/(\d+)", url)
-        if match:
-            native_id = match.group(1)
-        else:
-            native_id = hashlib.sha256((url or text).encode("utf-8")).hexdigest()[:24]
+        native_id = extract_native_id(url, text, platform)
 
     if not url:
-        url = f"https://x.com/{author}/status/{native_id}"
+        url = f"https://{platform}.com/{author}/{native_id}"
 
     brand_replied = bool(item.get("brand_replied", False))
     reply_text = item.get("reply_text")
     parent_url = item.get("parent_url")
-    proof = str(item.get("proof") or "grok_bot")
-    collected_by = str(item.get("collected_by") or "grok")
+    surface = str(item.get("surface") or ("owned" if brand_replied else "earned")).lower().strip()
+    proof = str(item.get("proof") or "bot_ingest")
+    collected_by = str(item.get("collected_by") or platform or "bot")
 
     return {
         "posted_at": posted_at,
@@ -116,21 +248,58 @@ def normalize_mention(item: dict) -> dict | None:
 
 def parse_raw_lines(raw: str) -> list[dict]:
     items = []
-    lines = raw.strip().splitlines()
-    for line in lines:
-        cleaned = line.strip()
-        if not cleaned:
-            continue
-        if cleaned.startswith("```"):
+    cleaned_raw = raw.strip()
+
+    # Strip markdown backticks
+    if cleaned_raw.startswith("```"):
+        cleaned_raw = re.sub(r"^```[a-zA-Z]*\n", "", cleaned_raw)
+        cleaned_raw = re.sub(r"\n```$", "", cleaned_raw).strip()
+
+    # 1. Try parsing full content as JSON
+    try:
+        parsed = json.loads(cleaned_raw)
+        if isinstance(parsed, list):
+            return [x for x in parsed if isinstance(x, dict)]
+        if isinstance(parsed, dict):
+            if "items" in parsed and isinstance(parsed["items"], list):
+                return [x for x in parsed["items"] if isinstance(x, dict)]
+            return [parsed]
+    except Exception:
+        pass
+
+    # 2. Try parsing full content as Python literal dict (single quotes)
+    try:
+        parsed = ast.literal_eval(cleaned_raw)
+        if isinstance(parsed, list):
+            return [x for x in parsed if isinstance(x, dict)]
+        if isinstance(parsed, dict):
+            return [parsed]
+    except Exception:
+        pass
+
+    # 3. Line-by-line parsing
+    for line in cleaned_raw.splitlines():
+        line = line.strip()
+        if not line or line.startswith("```"):
             continue
         try:
-            parsed = json.loads(cleaned)
+            parsed = json.loads(line)
             if isinstance(parsed, dict):
                 items.append(parsed)
             elif isinstance(parsed, list):
                 items.extend([x for x in parsed if isinstance(x, dict)])
-        except Exception:
             continue
+        except Exception:
+            pass
+
+        try:
+            parsed = ast.literal_eval(line)
+            if isinstance(parsed, dict):
+                items.append(parsed)
+                continue
+        except Exception:
+            pass
+
     return items
 
 
@@ -144,6 +313,14 @@ def ingest_records(conn, items: list[dict]) -> dict:
         if not row:
             rejected += 1
             continue
+
+        # Fast URL deduplication check
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM mentions WHERE url = %s LIMIT 1;", (row["url"],))
+            if cur.fetchone():
+                duplicates += 1
+                continue
+
         res = insert_row(conn, row)
         if res == "added":
             added += 1
