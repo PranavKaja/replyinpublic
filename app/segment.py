@@ -143,8 +143,8 @@ def label_gemini(conn, limit_batches: int = 200) -> tuple[int, str]:
             FROM mentions m
             JOIN brands b ON b.id = m.brand_id
             LEFT JOIN labels l ON l.mention_id = m.id AND l.posted_at = m.posted_at
-            WHERE COALESCE(l.model, '') NOT LIKE '%%-meaning'
-            ORDER BY (position(lower(b.name) in lower(m.text)) > 0), m.posted_at DESC
+            WHERE l.mention_id IS NULL
+            ORDER BY m.posted_at DESC
             LIMIT %s
             """,
             (limit_batches * BATCH,),
