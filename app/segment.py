@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -23,11 +24,10 @@ REACTIONS = {
     "hello", "gg", "wp", "omfg", "lmao", "rofl",
 }
 MODELS = (
-    "gemini-3.5-flash",
     "gemini-3.5-flash-lite",
-    "gemini-2.5-flash-lite",
+    "gemini-3.5-flash",
 )
-BATCH = 12
+BATCH = 30
 FOCUS = ("instant", "kitchenaid", "traeger", "ninja", "delonghi")
 
 
@@ -131,7 +131,7 @@ def label_rules(conn) -> int:
     return kept
 
 
-def label_gemini(conn, limit_batches: int = 40) -> tuple[int, str]:
+def label_gemini(conn, limit_batches: int = 200) -> tuple[int, str]:
     load_env()
     key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not key:
@@ -143,14 +143,11 @@ def label_gemini(conn, limit_batches: int = 40) -> tuple[int, str]:
             FROM mentions m
             JOIN brands b ON b.id = m.brand_id
             LEFT JOIN labels l ON l.mention_id = m.id AND l.posted_at = m.posted_at
-            WHERE b.id = ANY(%s)
-              AND COALESCE(l.relevant, true) IS TRUE
-              AND COALESCE(l.model, '') NOT LIKE '%%-meaning'
-              AND m.brand_replied IS NOT TRUE
+            WHERE COALESCE(l.model, '') NOT LIKE '%%-meaning'
             ORDER BY (position(lower(b.name) in lower(m.text)) > 0), m.posted_at DESC
             LIMIT %s
             """,
-            (list(FOCUS), limit_batches * BATCH),
+            (limit_batches * BATCH,),
         )
         rows = cur.fetchall()
     labeled = 0
@@ -229,19 +226,25 @@ def ask_gemini(key: str, chunk: list) -> tuple[list, str]:
             data=body,
             headers={"Content-Type": "application/json"},
         )
-        try:
-            with urllib.request.urlopen(request, timeout=150) as response:
-                payload = json.load(response)
-        except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", "replace")[:180]
-            last = f"{model} HTTP {exc.code} {detail}"
-            if exc.code in (429, 404, 400, 503):
-                if exc.code == 429 and model == MODELS[-1]:
-                    raise QuotaError(last)
-                continue
-            raise
-        except TimeoutError:
-            last = f"{model} timeout"
+        payload = None
+        for attempt in range(4):
+            try:
+                with urllib.request.urlopen(request, timeout=150) as response:
+                    payload = json.load(response)
+                break
+            except urllib.error.HTTPError as exc:
+                detail = exc.read().decode("utf-8", "replace")[:180]
+                last = f"{model} HTTP {exc.code} {detail}"
+                if exc.code == 503 and attempt < 3:
+                    time.sleep(8)
+                    continue
+                payload = None
+                break
+            except TimeoutError:
+                last = f"{model} timeout"
+                payload = None
+                break
+        if payload is None:
             continue
         text = ""
         for candidate in payload.get("candidates") or []:

@@ -85,13 +85,21 @@ def embed(key: str, text: str) -> list[float] | None:
         data=body,
         headers={"Content-Type": "application/json"},
     )
-    try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            payload = json.load(response)
-    except urllib.error.HTTPError as exc:
-        if exc.code == 402:
-            return None
-        raise
+    for attempt in range(5):
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                payload = json.load(response)
+                break
+        except urllib.error.HTTPError as exc:
+            if exc.code == 402:
+                return None
+            if exc.code in (403, 429, 503) and attempt < 4:
+                import time
+                time.sleep(4 * (attempt + 1))
+                continue
+            raise
+    else:
+        return None
     values = payload["embedding"]["values"]
     if len(values) != DIM:
         raise RuntimeError(f"embedding length {len(values)}")

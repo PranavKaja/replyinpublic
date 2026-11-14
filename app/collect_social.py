@@ -113,7 +113,8 @@ def insert_row(conn, row: dict) -> str:
     if not row.get("url") or not str(row.get("text") or "").strip() or not row.get("posted_at"):
         return "reject"
     if not str(row.get("native_id") or "").strip():
-        return "reject"
+        import hashlib
+        row["native_id"] = hashlib.sha256((row.get("url") or row.get("text", "")).encode("utf-8")).hexdigest()[:24]
     with conn.cursor() as cur:
         cur.execute(
             """
