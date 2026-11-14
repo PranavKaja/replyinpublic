@@ -49,6 +49,7 @@ install -m 644 deploy/replyinpublic-segment.service /etc/systemd/system/
 install -m 644 deploy/replyinpublic-segment.timer /etc/systemd/system/
 
 install -m 644 Caddyfile /etc/caddy/Caddyfile
+command -v ufw >/dev/null 2>&1 && (ufw allow 80/tcp || true; ufw allow 443/tcp || true)
 systemctl enable --now caddy
 
 systemctl daemon-reload
