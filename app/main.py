@@ -179,8 +179,18 @@ def _embed(key: str, text: str) -> list[float]:
     return payload["embedding"]["values"]
 
 
+def _copilot_allowed(token: str) -> bool:
+    load_env()
+    required = os.environ.get("COPILOT_TOKEN", "").strip()
+    if not required:
+        return True
+    return token.strip() == required
+
+
 @app.get("/api/copilot")
-def copilot(mention_id: int, posted_at: str) -> dict:
+def copilot(mention_id: int, posted_at: str, token: str = "") -> dict:
+    if not _copilot_allowed(token):
+        return {"passages": [], "reply": "copilot token required"}
     load_env()
     key = os.environ.get("GEMINI_API_KEY", "").strip()
     with db() as conn:

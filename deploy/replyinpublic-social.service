@@ -1,0 +1,9 @@
+[Unit]
+Description=ReplyInPublic Instagram, X, and Reddit pull
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/replyinpublic
+EnvironmentFile=/etc/replyinpublic.env
+ExecStart=/opt/replyinpublic/.venv/bin/python -m app.collect_social instagram x reddit

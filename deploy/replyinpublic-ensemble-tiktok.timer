@@ -1,0 +1,11 @@
+[Unit]
+Description=ReplyInPublic TikTok via EnsembleData (twice daily Eastern)
+
+[Timer]
+OnCalendar=*-*-* 07:00:00
+OnCalendar=*-*-* 19:00:00
+Timezone=America/New_York
+Persistent=true
+
+[Install]
+WantedBy=timers.target

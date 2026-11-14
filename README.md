@@ -1,6 +1,6 @@
 # ReplyInPublic
 
-ReplyInPublic collects public YouTube comments for 17 kitchen brands, records whether the brand channel already replied, and ranks brands by unanswered comments from the last 14 days.
+ReplyInPublic collects public comments across 5 platforms (YouTube, Instagram, TikTok, X, and Reddit) for kitchen brands, records whether the brand already replied, and ranks brands equally across all sources by unanswered comments from the last 14 days.
 
 Built at HackUMass XIV with Cursor, Grok, Gemini, and Claude.
 
@@ -18,8 +18,14 @@ Copy `.env.example` to `.env` and set:
 
 - `DATABASE_URL`: Tiger Data (Postgres with TimescaleDB) connection string
 - `YOUTUBE_API_KEY`: YouTube Data API v3 key
+- `GEMINI_API_KEY`: Google AI Studio Gemini API key (active on Tier 1 Pay-as-you-go; uses `gemini-3.5-flash` and `gemini-3.5-flash-lite`)
+- `APIFY_TOKEN`: Apify token for Instagram, TikTok, X, and Reddit scrapers
+- `ENSEMBLEDATA_API_KEY`: EnsembleData token for scheduled TikTok pulls (50 units per day)
+- `COPILOT_TOKEN`: optional on localhost; required on production so `/api/copilot` is not public
 
 `.env` is gitignored. Do not commit it.
+
+Production on Vultr: see [deploy/VULTR.md](deploy/VULTR.md). Systemd timers run YouTube every 30 minutes, Instagram/X/Reddit hourly, EnsembleData TikTok twice daily (Eastern), and labeling every 2 hours.
 
 ```
 .venv\Scripts\python -m app.schema

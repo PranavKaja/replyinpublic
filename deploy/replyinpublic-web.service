@@ -1,0 +1,16 @@
+[Unit]
+Description=ReplyInPublic dashboard (uvicorn)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/replyinpublic
+EnvironmentFile=/etc/replyinpublic.env
+ExecStart=/opt/replyinpublic/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8765
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target

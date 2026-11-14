@@ -1,0 +1,9 @@
+[Unit]
+Description=ReplyInPublic Gemini labeler batch
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/replyinpublic
+EnvironmentFile=/etc/replyinpublic.env
+ExecStart=/opt/replyinpublic/.venv/bin/python -m app.segment

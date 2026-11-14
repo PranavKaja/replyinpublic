@@ -153,6 +153,11 @@
         list.appendChild(card);
       }
     }
+    (function () {
+      const params = new URLSearchParams(location.search);
+      const fromUrl = params.get("token");
+      if (fromUrl) sessionStorage.setItem("rip_copilot_token", fromUrl);
+    })();
     function openCopilot(comment) {
       const box = document.getElementById("copilot");
       box.hidden = false;
@@ -161,6 +166,8 @@
         mention_id: comment.id,
         posted_at: comment.posted_at,
       });
+      const copilotToken = sessionStorage.getItem("rip_copilot_token");
+      if (copilotToken) query.set("token", copilotToken);
       fetch("/api/copilot?" + query).then((response) => response.json()).then((data) => {
         box.replaceChildren();
         const reply = document.createElement("p");
