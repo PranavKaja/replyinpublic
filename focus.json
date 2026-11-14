@@ -1,5 +1,12 @@
 {
   "picked": "2026-11-14",
-  "basis": "Unanswered comments in the last 14 days from the first YouTube pass, before noise removal.",
-  "brands": ["instant", "kitchenaid", "traeger", "ninja", "delonghi"]
+  "basis": "Labeled questions, complaints, and purchase intent across all 17 brands. Raw comment counts are not used. Praise and noise are not counted.",
+  "brands": ["kitchenaid", "nespresso", "breville", "instant", "ninja"],
+  "counts": {
+    "kitchenaid": 201,
+    "nespresso": 167,
+    "breville": 144,
+    "instant": 87,
+    "ninja": 86
+  }
 }
