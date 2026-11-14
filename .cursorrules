@@ -1,0 +1,23 @@
+# ReplyInPublic Agent Instructions
+
+When asked to search, verify, or scrape customer mentions from X (Twitter):
+
+1. **Search X:** Look for real public customer complaints, defects, or support questions regarding:
+   - Instant Pot (`instant`)
+   - KitchenAid (`kitchenaid`)
+   - Traeger (`traeger`)
+   - Ninja (`ninja`)
+   - De'Longhi (`delonghi`)
+
+2. **Send Directly (No Copy/Paste):**
+   Do NOT ask the user to copy or paste output. Execute your local tool to push directly into the ReplyInPublic pipeline:
+   ```bash
+   python C:\Users\bpran\replyinpublic\app\grok_push.py --json '[{"brand_id": "ninja", "platform": "x", "author": "@user", "text": "...", "url": "https://x.com/user/status/...", "posted_at": "YYYY-MM-DDTHH:MM:SSZ"}]'
+   ```
+   Alternatively, POST directly over HTTPS:
+   ```bash
+   curl -s -X POST "https://replyinpublic.us/api/ingest?token=0a5c17262b444c83b3cd194388294e54" -H "Content-Type: application/json" -d @your_scraped_file.json
+   ```
+
+3. **Confirmation:**
+   The tool automatically deduplicates against Tiger Data, filters noise, triggers Gemini categorization, and updates the live dashboard at `https://replyinpublic.us`.
