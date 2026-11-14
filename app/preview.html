@@ -61,6 +61,23 @@
     <p class="stats" id="stats">Loading comments from Tiger.</p>
     <p class="stats" id="segments"></p>
     <div class="days" id="days"></div>
+    <div style="margin-top: 14px; display: flex; gap: 10px; align-items: center;">
+      <button id="toggle-ingest" style="width: auto; margin: 0; padding: 6px 14px; background: #fff; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; font-size: 13px;">📥 Ingest Grok / X Posts</button>
+    </div>
+    <div id="ingest-panel" style="display: none; margin-top: 12px; padding: 14px; background: var(--card); border: 1px solid var(--line); border-radius: 4px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span style="font-weight: bold; font-size: 14px; font-family: ui-sans-serif, sans-serif;">🤖 Grok Live Scraper Prompt</span>
+        <button id="copy-prompt-btn" style="width: auto; margin: 0; padding: 4px 10px; font-size: 12px;">📋 Copy Grok Prompt</button>
+      </div>
+      <p style="font-size: 12px; color: var(--muted); font-family: ui-sans-serif, sans-serif; margin-bottom: 10px;">
+        Paste this prompt into Grok on <a href="https://x.com/grok" target="_blank">x.com/grok</a>. Then paste its output below to ingest directly into Tiger Data:
+      </p>
+      <textarea id="ingest-textarea" rows="4" placeholder="Paste Grok's raw JSON lines here..." style="width: 100%; font-family: ui-monospace, monospace; font-size: 12px; padding: 8px; border: 1px solid var(--line); box-sizing: border-box; resize: vertical;"></textarea>
+      <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center;">
+        <button id="submit-ingest-btn" style="width: auto; margin: 0; padding: 6px 14px; background: var(--ink); color: #fff; border: none; font-size: 13px;">Submit to Database</button>
+        <span id="ingest-status" style="font-size: 13px; color: var(--muted); font-family: ui-sans-serif, sans-serif;"></span>
+      </div>
+    </div>
   </header>
   <main class="layout">
     <nav id="brands"></nav>
@@ -189,6 +206,58 @@
         box.textContent = "not in the manuals, send to the brand's support person";
       });
     }
+    const grokPrompt = `Search X for the 15 most recent public customer complaints, product issues, or questions about Instant Pot, KitchenAid, Traeger, Ninja, or De'Longhi from the last 7 days. Output strictly raw JSON lines (one JSON object per line) with no markdown fences, no explanations. Format each line like:
+{"brand_id": "ninja", "platform": "x", "author": "@username", "text": "my blender broke after 2 days", "url": "https://x.com/username/status/1234567890", "posted_at": "2026-11-14T12:00:00Z"}`;
+
+    const toggleBtn = document.getElementById("toggle-ingest");
+    const ingestPanel = document.getElementById("ingest-panel");
+    if (toggleBtn && ingestPanel) {
+      toggleBtn.onclick = () => {
+        ingestPanel.style.display = ingestPanel.style.display === "none" ? "block" : "none";
+      };
+    }
+
+    const copyPromptBtn = document.getElementById("copy-prompt-btn");
+    if (copyPromptBtn) {
+      copyPromptBtn.onclick = () => {
+        navigator.clipboard.writeText(grokPrompt);
+        copyPromptBtn.textContent = "✅ Copied!";
+        setTimeout(() => { copyPromptBtn.textContent = "📋 Copy Grok Prompt"; }, 2000);
+      };
+    }
+
+    const submitIngestBtn = document.getElementById("submit-ingest-btn");
+    if (submitIngestBtn) {
+      submitIngestBtn.onclick = async () => {
+        const textarea = document.getElementById("ingest-textarea");
+        const statusSpan = document.getElementById("ingest-status");
+        const raw = textarea.value.trim();
+        if (!raw) {
+          statusSpan.textContent = "Please paste data first.";
+          return;
+        }
+        statusSpan.textContent = "Ingesting...";
+        const token = sessionStorage.getItem("rip_copilot_token") || "";
+        try {
+          const res = await fetch("/api/ingest?token=" + encodeURIComponent(token), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ raw: raw })
+          });
+          const result = await res.json();
+          if (res.ok) {
+            statusSpan.textContent = `Success! Added: ${result.added}, Duplicates: ${result.duplicates}, Rule-labeled: ${result.rule_labeled}`;
+            textarea.value = "";
+            load();
+          } else {
+            statusSpan.textContent = `Error: ${result.detail || "Failed to ingest"}`;
+          }
+        } catch (err) {
+          statusSpan.textContent = "Network error: " + err.message;
+        }
+      };
+    }
+
     load();
     setInterval(load, 15000);
   </script>

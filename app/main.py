@@ -6,10 +6,11 @@ import threading
 import urllib.request
 from datetime import datetime
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 from app.db import ROOT, connect, load_env
+from app.ingest import ingest_records, parse_raw_lines
 
 app = FastAPI(title="ReplyInPublic")
 _conn = None
@@ -185,6 +186,47 @@ def _copilot_allowed(token: str) -> bool:
     if not required:
         return True
     return token.strip() == required
+
+
+@app.post("/api/ingest")
+async def api_ingest(request: Request, token: str = "") -> dict:
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.lower().startswith("bearer "):
+        token = auth_header[7:].strip()
+    if not token:
+        token = request.headers.get("x-token", "")
+    if not _copilot_allowed(token):
+        raise HTTPException(status_code=401, detail="copilot token required")
+
+    try:
+        raw_body = await request.body()
+        text_body = raw_body.decode("utf-8")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid body: {exc}")
+
+    items = []
+    try:
+        data = json.loads(text_body)
+        if isinstance(data, list):
+            items = data
+        elif isinstance(data, dict):
+            if "items" in data and isinstance(data["items"], list):
+                items = data["items"]
+            elif "raw" in data and isinstance(data["raw"], str):
+                items = parse_raw_lines(data["raw"])
+            else:
+                items = [data]
+        elif isinstance(data, str):
+            items = parse_raw_lines(data)
+    except Exception:
+        items = parse_raw_lines(text_body)
+
+    if not items:
+        return {"status": "empty", "message": "No valid JSON or lines found in request body", "added": 0}
+
+    with db() as conn:
+        result = ingest_records(conn, items)
+    return result
 
 
 @app.get("/api/copilot")
