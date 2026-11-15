@@ -36,6 +36,7 @@ import {
 } from "@/lib/overheard/logic";
 import { Button } from "@/components/ui/button";
 import { Logo } from "./Logo";
+import { signOut, type Me } from "@/lib/overheard/data";
 
 interface Props {
   f: Filters;
@@ -44,6 +45,7 @@ interface Props {
   themes: Theme[];
   mentions: Mention[];
   counts: Record<string, number>;
+  me: Me;
 }
 
 const VIEWS: { id: View; label: string; icon: typeof Inbox }[] = [
@@ -53,7 +55,7 @@ const VIEWS: { id: View; label: string; icon: typeof Inbox }[] = [
   { id: "handled", label: "Handled", icon: CheckCheck },
   { id: "feedback", label: "Feedback for brand", icon: MessageSquareReply },
 ];
-const OVERVIEWS: { id: View; label: string; icon: typeof Inbox }[] = [
+const ALL_OVERVIEWS: { id: View; label: string; icon: typeof Inbox }[] = [
   { id: "pipeline", label: "Pipeline", icon: Columns3 },
   { id: "issues", label: "Issues", icon: Layers },
   { id: "brands", label: "Clients", icon: Building2 },
@@ -61,15 +63,16 @@ const OVERVIEWS: { id: View; label: string; icon: typeof Inbox }[] = [
   { id: "kit", label: "Brand kit", icon: BookOpen },
 ];
 
-export function Sidebar({ f, set, brands, themes, mentions, counts }: Props) {
+export function Sidebar({ f, set, brands, themes, mentions, counts, me }: Props) {
+  const defaultRole = me.role === "rip" ? "ReplyInPublic team" : "Brand team";
   const [dark, setDark] = useState(false);
-  const [name, setName] = useState("Pranav Kaja");
-  const [role, setRole] = useState("Founder");
+  const [name, setName] = useState(me.name);
+  const [role, setRole] = useState(defaultRole);
   const [available, setAvailable] = useState(true);
   useEffect(() => {
-    setName(localStorage.getItem("overheard:name") ?? "Pranav Kaja");
-    setRole(localStorage.getItem("overheard:role") ?? "Founder");
-  }, []);
+    setName(localStorage.getItem(`overheard:name:${me.username}`) ?? me.name);
+    setRole(localStorage.getItem(`overheard:role:${me.username}`) ?? defaultRole);
+  }, [me.username, me.name, defaultRole]);
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
@@ -84,6 +87,9 @@ export function Sidebar({ f, set, brands, themes, mentions, counts }: Props) {
     .filter((t) => !f.brand || t.brand_id === f.brand)
     .map((t) => [t.id, f.brand ? t.name : `${brands.find((b) => b.id === t.brand_id)?.name ?? ""}: ${t.name}`]);
   const active = [f.where !== "all", f.brand, f.platform, f.theme, f.type, f.reply, f.urgency].filter(Boolean).length;
+
+  // A brand team has one brand, so the client list is not shown to it.
+  const OVERVIEWS = ALL_OVERVIEWS.filter((o) => o.id !== "brands" || me.role === "rip");
 
   const item = (active: boolean) =>
     cn(
@@ -151,8 +157,10 @@ export function Sidebar({ f, set, brands, themes, mentions, counts }: Props) {
           <Pick label="Urgency" value={f.urgency ?? ""} onChange={(v) => set({ urgency: v })} all="Any urgency" counts={count("urgency")}
             options={[["high", "High"], ["medium", "Medium"], ["low", "Low"]]} />
         )}
-        <Pick label="Client" value={f.brand} onChange={(v) => set({ brand: v, theme: "" })} all="All clients" counts={count("brand")}
-          options={brands.map((b) => [b.id, b.name])} />
+        {brands.length > 1 && (
+          <Pick label="Client" value={f.brand} onChange={(v) => set({ brand: v, theme: "" })} all="All clients" counts={count("brand")}
+            options={brands.map((b) => [b.id, b.name])} />
+        )}
         {listView && issueOptions.length > 0 && (
           <Pick label="Issue" value={f.theme} onChange={(v) => set({ theme: v })} all="All issues" counts={count("theme")}
             options={issueOptions} hideEmpty />
@@ -203,7 +211,7 @@ export function Sidebar({ f, set, brands, themes, mentions, counts }: Props) {
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value);
-                  localStorage.setItem("overheard:name", e.target.value);
+                  localStorage.setItem(`overheard:name:${me.username}`, e.target.value);
                 }}
               />
             </label>
@@ -214,7 +222,7 @@ export function Sidebar({ f, set, brands, themes, mentions, counts }: Props) {
                 value={role}
                 onChange={(e) => {
                   setRole(e.target.value);
-                  localStorage.setItem("overheard:role", e.target.value);
+                  localStorage.setItem(`overheard:role:${me.username}`, e.target.value);
                 }}
               />
             </label>
@@ -236,6 +244,12 @@ export function Sidebar({ f, set, brands, themes, mentions, counts }: Props) {
           >
             {dark ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}{" "}
             {dark ? "Light" : "Dark"}
+          </button>
+          <button
+            onClick={() => void signOut().then(() => window.location.assign("/login"))}
+            className="hover:text-foreground"
+          >
+            Sign out
           </button>
           <Dialog>
             <DialogTrigger asChild>

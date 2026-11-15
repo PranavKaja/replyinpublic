@@ -1,13 +1,16 @@
 """Local preview of the comments already stored in Tiger."""
 
+import hashlib
+import hmac
 import json
 import os
 import threading
+import time
 import urllib.request
 from datetime import datetime, timedelta
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.db import ROOT, connect, load_env
@@ -40,6 +43,7 @@ def home() -> FileResponse:
 
 
 @app.get("/inbox")
+@app.get("/login")
 def inbox_page() -> FileResponse:
     return _spa()
 
@@ -73,12 +77,101 @@ def old_workspace() -> str:
 
 DESK_STATUSES = {"inbox", "parked", "snoozed", "handled", "dismissed", "feedback"}
 _URGENCY_POINTS = {"high": 60, "medium": 40, "low": 20}
+SESSION_COOKIE = "rip_session"
+SESSION_DAYS = 7
+
+
+def _focus() -> list:
+    return json.loads((ROOT / "focus.json").read_text(encoding="utf-8"))["brands"]
+
+
+def _desk_users() -> dict:
+    """Two kinds of account. A brand team sees its own brand. The ReplyInPublic team sees them all.
+
+    DESK_USERS in the environment replaces these, as JSON in the same shape.
+    """
+    load_env()
+    raw = os.environ.get("DESK_USERS", "").strip()
+    if raw:
+        return json.loads(raw)
+    return {
+        "brand": {"password": "brand", "role": "brand", "name": "Nespresso team", "brands": ["nespresso"]},
+        "pranav": {"password": "pranav", "role": "rip", "name": "Pranav Kaja", "brands": "*"},
+    }
+
+
+def _session_secret() -> bytes:
+    load_env()
+    seed = os.environ.get("SESSION_SECRET") or os.environ.get("DATABASE_URL", "") + "desk-session"
+    return hashlib.sha256(seed.encode()).digest()
+
+
+def _sign(username: str, expires: int) -> str:
+    body = f"{username}.{expires}"
+    return body + "." + hmac.new(_session_secret(), body.encode(), hashlib.sha256).hexdigest()
+
+
+def _session(request: Request) -> dict:
+    """The signed-in account, or a 401. Scope comes from the server, never from the browser."""
+    token = request.cookies.get(SESSION_COOKIE, "")
+    username, _, rest = token.partition(".")
+    expires, _, _sig = rest.partition(".")
+    user = _desk_users().get(username)
+    if (
+        not user
+        or not expires.isdigit()
+        or int(expires) < time.time()
+        or not hmac.compare_digest(token, _sign(username, int(expires)))
+    ):
+        raise HTTPException(status_code=401, detail="sign in")
+    focus = _focus()
+    brands = focus if user.get("brands") == "*" else [b for b in user.get("brands") or [] if b in focus]
+    return {"username": username, "role": user.get("role", "brand"), "name": user.get("name", username), "brands": brands}
+
+
+@app.post("/api/desk/login")
+async def desk_login(request: Request) -> JSONResponse:
+    body = await request.json()
+    username = str(body.get("username", "")).strip().lower()
+    password = str(body.get("password", ""))
+    user = _desk_users().get(username)
+    expected = (user or {}).get("password", "")
+    if not user or not hmac.compare_digest(password.encode(), str(expected).encode()):
+        time.sleep(0.4)
+        raise HTTPException(status_code=401, detail="wrong username or password")
+    expires = int(time.time()) + SESSION_DAYS * 86400
+    response = JSONResponse({"ok": True})
+    response.set_cookie(
+        SESSION_COOKIE,
+        _sign(username, expires),
+        max_age=SESSION_DAYS * 86400,
+        httponly=True,
+        samesite="lax",
+        secure=request.headers.get("x-forwarded-proto", request.url.scheme) == "https",
+        path="/",
+    )
+    return response
+
+
+@app.post("/api/desk/logout")
+def desk_logout() -> JSONResponse:
+    response = JSONResponse({"ok": True})
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return response
+
+
+def _in_scope(conn, mention_id: int, brands: list) -> None:
+    with conn.cursor() as cur:
+        cur.execute("SELECT 1 FROM mentions WHERE id = %s AND brand_id = ANY(%s) LIMIT 1", (mention_id, brands))
+        if cur.fetchone() is None:
+            raise HTTPException(status_code=404, detail="not found")
 
 
 @app.get("/api/desk/data")
-def desk_data() -> dict:
-    """Brands, issues and messages in the shape the workspace reads."""
-    focus = json.loads((ROOT / "focus.json").read_text(encoding="utf-8"))["brands"]
+def desk_data(request: Request) -> dict:
+    """Brands, issues and messages in the shape the workspace reads, limited to the account's brands."""
+    me = _session(request)
+    focus = me["brands"]
     with _lock:
         conn = db()
         with conn.cursor() as cur:
@@ -160,7 +253,7 @@ def desk_data() -> dict:
             "status_changed_at": changed_at.isoformat() if changed_at else None,
             "is_feedback": bool(is_feedback),
         })
-    return {"brands": brands, "themes": themes, "mentions": mentions}
+    return {"me": me, "brands": brands, "themes": themes, "mentions": mentions}
 
 
 def _desk_id(body: dict) -> int:
@@ -172,6 +265,7 @@ def _desk_id(body: dict) -> int:
 
 @app.post("/api/desk/status")
 async def desk_status(request: Request) -> dict:
+    me = _session(request)
     body = await request.json()
     mention_id = _desk_id(body)
     status = body.get("status")
@@ -181,6 +275,7 @@ async def desk_status(request: Request) -> dict:
     is_feedback = body.get("is_feedback")
     with _lock:
         conn = db()
+        _in_scope(conn, mention_id, me["brands"])
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -200,11 +295,13 @@ async def desk_status(request: Request) -> dict:
 
 @app.post("/api/desk/draft")
 async def desk_draft(request: Request) -> dict:
+    me = _session(request)
     body = await request.json()
     mention_id = _desk_id(body)
     draft = str(body.get("draft", ""))[:5000]
     with _lock:
         conn = db()
+        _in_scope(conn, mention_id, me["brands"])
         with conn.cursor() as cur:
             cur.execute(
                 """

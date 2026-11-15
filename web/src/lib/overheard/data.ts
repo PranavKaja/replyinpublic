@@ -8,14 +8,26 @@ const setMentionStatus = ({ data }: { data: unknown }) => post("/api/desk/status
 const saveMentionDraft = ({ data }: { data: unknown }) => post("/api/desk/draft", data);
 import type { Brand, Mention, Status, Theme } from "./logic";
 
+export interface Me { username: string; role: "brand" | "rip"; name: string; brands: string[] }
+export class SignedOut extends Error {
+  constructor() {
+    super("Signed out");
+  }
+}
+export async function signOut() {
+  await fetch("/api/desk/logout", { method: "POST" });
+}
+
 export const dataQuery = queryOptions({
   queryKey: ["overheard"],
   queryFn: async () => {
     const r = await fetch("/api/desk/data");
+    if (r.status === 401) throw new SignedOut();
     if (!r.ok) throw new Error("Could not load messages");
-    return (await r.json()) as { brands: Brand[]; themes: Theme[]; mentions: Mention[] };
+    return (await r.json()) as { me: Me; brands: Brand[]; themes: Theme[]; mentions: Mention[] };
   },
   refetchInterval: 60_000,
+  retry: (count, error) => !(error instanceof SignedOut) && count < 2,
 });
 
 type Data = Awaited<ReturnType<typeof dataQuery.queryFn & {}>>;

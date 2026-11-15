@@ -1,11 +1,11 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Menu, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { dataQuery, useSetStatus } from "@/lib/overheard/data";
+import { dataQuery, useSetStatus, SignedOut } from "@/lib/overheard/data";
 import {
   effectiveStatus,
   filterMentions,
@@ -96,7 +96,14 @@ export const Route = createFileRoute("/inbox")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(dataQuery),
+  loader: async ({ context }) => {
+    try {
+      return await context.queryClient.ensureQueryData(dataQuery);
+    } catch (error) {
+      if (error instanceof SignedOut) throw redirect({ to: "/login" });
+      throw error;
+    }
+  },
   component: App,
   errorComponent: ({ error }) => (
     <div className="p-10 font-serif text-xl">
@@ -281,6 +288,7 @@ function App() {
       themes={data.themes}
       mentions={data.mentions}
       counts={counts}
+      me={data.me}
     />
   );
   const openSibling = (id: string) => {
