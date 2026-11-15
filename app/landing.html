@@ -3,53 +3,231 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ReplyInPublic</title>
-  <meta name="description" content="ReplyInPublic collects public comments your brand has not answered and drafts a reply from your own support documents. A person approves it before it is sent.">
+  <title>ReplyInPublic — Surveys measure satisfaction. Replies earn it.</title>
+  <meta name="description" content="ReplyInPublic helps brands move money from satisfaction and feedback surveys to answering the feedback customers already post in public.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
       color-scheme: light;
-      --ink: #14211c;
-      --muted: #5c675f;
-      --line: #d9e0da;
-      --paper: #f6f7f4;
+      --ink: #141f1a;
+      --muted: #546057;
+      --muted-light: #7c897f;
+      --line: #dedad2;
+      --paper: #fbfbf9;
       --card: #ffffff;
-      --green: #0f6e56;
-      --green-2: #e7f4ef;
+      --accent: #9c3418;
+      --accent-soft: #fbf0ec;
+      --green: #1b6340;
+      --green-soft: #eaf4ee;
     }
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 "Segoe UI", system-ui, sans-serif; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 400 16px/1.55 Geist, system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
     a { color: inherit; }
     header, section, footer { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
-    .nav { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; }
-    .mark { font-weight: 650; letter-spacing: -0.03em; }
+    
+    /* Top Nav */
+    .nav { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; border-bottom: 1px solid var(--line); }
+    .mark { font-weight: 700; font-size: 19px; letter-spacing: -0.03em; text-decoration: none; color: var(--ink); }
     .nav a.cta, .hero a.cta, .band a.cta {
       display: inline-block; background: var(--ink); color: #fff; text-decoration: none;
-      padding: 10px 16px; border-radius: 8px; font-size: 14px;
+      padding: 10px 18px; border-radius: 6px; font-size: 14px; font-weight: 500;
+      transition: opacity 0.15s ease;
     }
-    .nav .links { display: flex; gap: 18px; align-items: center; font-size: 14px; }
+    .nav a.cta:hover, .hero a.cta:hover, .band a.cta:hover { opacity: 0.88; }
+    .nav .links { display: flex; gap: 20px; align-items: center; font-size: 14px; }
     .nav .links a { text-decoration: none; color: var(--muted); }
-    .hero { padding: 28px 0 12px; }
-    h1 { font-size: clamp(36px, 5vw, 56px); line-height: 1.05; letter-spacing: -0.04em; margin: 0 0 16px; font-weight: 640; max-width: 16ch; }
-    .lede { font-size: 18px; color: var(--muted); max-width: 42rem; margin: 0 0 22px; }
-    .hero-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-    .ghost { color: var(--ink); text-decoration: none; font-size: 14px; border-bottom: 1px solid var(--line); }
-    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 36px 0; }
-    .stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
-    .stat b { display: block; font-size: 26px; letter-spacing: -0.03em; }
+    .nav .links a:hover { color: var(--ink); }
+
+    /* Hero */
+    .hero { padding: 44px 0 20px; }
+    .kicker {
+      display: inline-block;
+      font: 500 12px/1.2 "IBM Plex Mono", monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+      padding: 4px 10px;
+      border-radius: 4px;
+      margin-bottom: 18px;
+    }
+    h1 {
+      font-size: clamp(38px, 5.5vw, 62px);
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+      margin: 0 0 20px;
+      font-weight: 700;
+      max-width: 17ch;
+    }
+    .lede {
+      font-size: clamp(18px, 2.2vw, 21px);
+      line-height: 1.45;
+      color: var(--muted);
+      max-width: 44rem;
+      margin: 0 0 28px;
+    }
+    .hero-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 40px; }
+    .ghost {
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 10px 16px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--card);
+    }
+    .ghost:hover { background: #f0ece3; }
+
+    /* The 3 Core Truths */
+    .tenets {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 48px;
+    }
+    .tenet-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+    }
+    .tenet-card .label {
+      font: 500 11px/1.2 "IBM Plex Mono", monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .tenet-card h3 {
+      font-size: 18px;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+      font-weight: 600;
+    }
+    .tenet-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    /* Pullquote Narrative */
+    .narrative {
+      background: #f2efe8;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--ink);
+      border-radius: 8px;
+      padding: 28px 32px;
+      margin-bottom: 56px;
+    }
+    .narrative blockquote {
+      margin: 0;
+      font-size: clamp(18px, 2.2vw, 22px);
+      line-height: 1.45;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+    .narrative cite {
+      display: block;
+      margin-top: 14px;
+      font-style: normal;
+      font: 13px/1.4 "IBM Plex Mono", monospace;
+      color: var(--muted);
+    }
+
+    /* Comparison: Surveys vs Replies */
+    .vs-section { margin-bottom: 56px; }
+    .vs-header { margin-bottom: 24px; }
+    .vs-header h2 { font-size: 30px; letter-spacing: -0.03em; margin: 0 0 8px; font-weight: 700; }
+    .vs-header p { margin: 0; color: var(--muted); font-size: 16px; }
+    .vs-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    .vs-card {
+      border-radius: 8px;
+      padding: 24px;
+      border: 1px solid var(--line);
+    }
+    .vs-card.old { background: #faf7f2; border-color: #e6dacd; }
+    .vs-card.new { background: var(--card); border-color: #b8dcbf; border-width: 2px; }
+    .vs-badge {
+      display: inline-block;
+      font: 500 11px/1.2 "IBM Plex Mono", monospace;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
+    .vs-card.old .vs-badge { background: #f3dfd5; color: #873117; }
+    .vs-card.new .vs-badge { background: var(--green-soft); color: var(--green); }
+    .vs-card h3 { margin: 0 0 14px; font-size: 20px; letter-spacing: -0.02em; }
+    .vs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+    .vs-list li { display: flex; gap: 8px; align-items: flex-start; color: var(--muted); line-height: 1.45; }
+    .vs-list li b { color: var(--ink); }
+
+    /* Live stats */
+    .stats-section { margin-bottom: 56px; }
+    .stats-section h2 { font-size: 24px; letter-spacing: -0.02em; margin: 0 0 16px; font-weight: 600; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .stat { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 18px; }
+    .stat b { display: block; font-size: 28px; letter-spacing: -0.03em; font-family: "IBM Plex Mono", monospace; }
     .stat span { color: var(--muted); font-size: 13px; }
-    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 10px 0 48px; }
-    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
-    .card h2 { margin: 0 0 8px; font-size: 18px; }
-    .card p { margin: 0; color: var(--muted); }
-    .step { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--green); margin-bottom: 8px; }
-    h3 { font-size: 28px; letter-spacing: -0.03em; margin: 0 0 8px; }
-    .split { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 28px; align-items: start; margin-bottom: 56px; }
-    ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
-    .band { background: var(--ink); color: #f4f7f5; border-radius: 16px; padding: 28px; margin-bottom: 40px; }
-    .band p { color: #c5d0ca; max-width: 40rem; }
-    footer { padding-bottom: 36px; color: var(--muted); font-size: 13px; }
-    @media (max-width: 800px) {
-      .stats, .grid, .split { grid-template-columns: 1fr; }
+
+    /* Workflow: 01, 02, 03 */
+    .workflow { margin-bottom: 56px; }
+    .workflow h2 { font-size: 30px; letter-spacing: -0.03em; margin: 0 0 24px; font-weight: 700; }
+    .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .step-card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+    .step-num { font: 500 12px "IBM Plex Mono", monospace; color: var(--accent); margin-bottom: 8px; }
+    .step-card h3 { margin: 0 0 8px; font-size: 18px; letter-spacing: -0.02em; font-weight: 600; }
+    .step-card p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+
+    /* CTA Band */
+    .band {
+      background: var(--ink);
+      color: #f4f7f5;
+      border-radius: 12px;
+      padding: 36px;
+      margin-bottom: 48px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .band h2 { font-size: 28px; letter-spacing: -0.03em; margin: 0 0 8px; font-weight: 700; }
+    .band p { color: #b6c2ba; margin: 0; max-width: 38rem; font-size: 15px; }
+    .band a.cta { background: #ffffff; color: var(--ink); font-weight: 600; padding: 12px 22px; font-size: 15px; }
+
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 28px 24px 44px;
+      color: var(--muted-light);
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    @media (max-width: 860px) {
+      .tenets, .vs-grid, .steps-grid, .stats { grid-template-columns: 1fr; }
+      .band { flex-direction: column; align-items: flex-start; }
     }
   </style>
 </head>
@@ -58,71 +236,126 @@
     <div class="nav">
       <a class="mark" href="/" style="text-decoration:none;color:inherit;">ReplyInPublic</a>
       <div class="links">
-        <a href="#product">Product</a>
-        <a href="/app">Sign in to workspace</a>
-        <a class="cta" href="/app#start">Start a workspace</a>
+        <a href="#shift">The shift</a>
+        <a href="#how">How it works</a>
+        <a href="/app">Workspace desk</a>
+        <a class="cta" href="/app">Open workspace</a>
       </div>
     </div>
     <div class="hero">
-      <h1>The public comments your brand has not answered.</h1>
-      <p class="lede">ReplyInPublic watches YouTube, Instagram, TikTok, X, and Reddit, drops the noise, and drafts a reply from your own warranty and FAQ pages. A person on your team approves it before anything is sent.</p>
+      <div class="kicker">Customer intelligence · Earned reputation</div>
+      <h1>Surveys measure satisfaction. Replies earn it.</h1>
+      <p class="lede">ReplyInPublic helps brands move money from satisfaction and feedback surveys to answering the feedback customers already post in public.</p>
       <div class="hero-actions">
         <a class="cta" href="/app">Open the workspace</a>
-        <a class="ghost" href="#product">See how a case moves</a>
+        <a class="ghost" href="#shift">See the difference</a>
       </div>
     </div>
-    <div class="stats" id="stats"></div>
-  </header>
-  <section id="product">
-    <div class="grid">
-      <article class="card">
-        <div class="step">01 Collect</div>
-        <h2>One inbox for every public surface</h2>
-        <p>Brand posts and posts that never tag you. Each comment gets a case id, a platform, and a record of whether the brand already replied.</p>
+
+    <!-- The 3 Core Truths -->
+    <div class="tenets">
+      <article class="tenet-card">
+        <div class="label">Truth 01</div>
+        <h3>More honest</h3>
+        <p>Nobody was prompted. Customers wrote their comments unprompted because they actually care about the product.</p>
       </article>
-      <article class="card">
-        <div class="step">02 Sort</div>
-        <h2>Complaints, questions, and buyers first</h2>
-        <p>Noise stays out of the queue. The workspace ranks what a support person should open, not the raw comment count.</p>
+      <article class="tenet-card">
+        <div class="label">Truth 02</div>
+        <h3>Zero cost to collect</h3>
+        <p>Customers already wrote it for free in the comments. No survey fees, panels, incentives, or respondent fatigue.</p>
       </article>
-      <article class="card">
-        <div class="step">03 Reply</div>
-        <h2>Drafts that stay inside your documents</h2>
-        <p>The suggested reply cites the public page it came from. If the pages do not answer the customer, the draft says to send it to your support contact.</p>
+      <article class="tenet-card">
+        <div class="label">Truth 03</div>
+        <h3>Public dividend</h3>
+        <p>Every grounded reply improves your brand's reputation in front of every future customer reading the thread.</p>
       </article>
     </div>
-    <div class="split">
-      <div>
-        <h3>A workspace, not a slide.</h3>
-        <p class="lede">The kitchen brands running now are a live workspace: cases, drafts, a 48 hour reply timer, and a queue. Connecting a brand's own posting account is the next step. Until that connection is on, an approved draft waits for a person to send it.</p>
-        <ul>
-          <li>Inbox filtered by brand and by complaint, question, or purchase intent.</li>
-          <li>Case file with the source link, the support contact, and the due time.</li>
-          <li>Approve, edit, or reject. Approved text lands in the publish queue.</li>
-          <li>Sources show which accounts are connected and which are still waiting.</li>
+
+    <!-- Spoken Narrative Pullquote -->
+    <div class="narrative">
+      <blockquote>“Brands pay for feedback surveys to learn how customers feel. Customers are already saying it, for free, in the comments. ReplyInPublic finds those comments and gets them answered, so the brand gets honest feedback and a better public image in the same move.”</blockquote>
+      <cite>The core thesis behind ReplyInPublic</cite>
+    </div>
+  </header>
+
+  <section id="shift" class="vs-section">
+    <div class="vs-header">
+      <h2>The shift from surveys to public replies</h2>
+      <p>Why modern consumer brands are reallocating feedback budgets into public resolution.</p>
+    </div>
+    <div class="vs-grid">
+      <div class="vs-card old">
+        <div class="vs-badge">Legacy model</div>
+        <h3>Private feedback surveys</h3>
+        <ul class="vs-list">
+          <li><b>Prompted bias:</b> Only captured when an email or pop-up interrupts the customer.</li>
+          <li><b>High cost:</b> Expensive survey platforms, agency retainers, and cash incentives.</li>
+          <li><b>Locked data:</b> Sits inside internal slide decks while online complaints stay unanswered.</li>
+          <li><b>Zero public return:</b> Prospective customers looking up reviews never see the effort.</li>
         </ul>
       </div>
-      <div class="card">
-        <div class="step">Live workspace</div>
-        <h2>Five brands in the current desk</h2>
-        <p>KitchenAid, Nespresso, Breville, Instant Pot, and Ninja. Other brands in the catalog stay on the list and can be opened from the same console.</p>
+      <div class="vs-card new">
+        <div class="vs-badge">ReplyInPublic</div>
+        <h3>Public comment resolution</h3>
+        <ul class="vs-list">
+          <li><b>Raw honesty:</b> Unprompted feedback posted where real buying conversations happen.</li>
+          <li><b>Zero collection cost:</b> Free customer signal already existing on public surfaces.</li>
+          <li><b>Grounded in manuals:</b> Suggested answers cite verified warranty and FAQ pages.</li>
+          <li><b>Compounding reputation:</b> Every thread resolved publicly earns trust with thousands of lurkers.</li>
+        </ul>
       </div>
     </div>
-    <div class="band">
-      <h3>Put your brand on the desk.</h3>
-      <p>Tell us the company, the surfaces you care about, and a public warranty or FAQ link. We open the workspace with your documents behind the drafts.</p>
-      <a class="cta" href="/app#start">Request a workspace</a>
+  </section>
+
+  <section id="how" class="workflow">
+    <h2>How ReplyInPublic works</h2>
+    <div class="steps-grid">
+      <article class="step-card">
+        <div class="step-num">01 / Detect</div>
+        <h3>Listen to the room</h3>
+        <p>We watch YouTube, Instagram, TikTok, X, and Reddit for unprompted questions, complaints, and purchase intent. Noise stays out of the queue.</p>
+      </article>
+      <article class="step-card">
+        <div class="step-num">02 / Ground</div>
+        <h3>Draft strictly from manuals</h3>
+        <p>Replies are generated using your public warranty and FAQ documents. If the manuals don't have the answer, the copilot routes to your support contact.</p>
+      </article>
+      <article class="step-card">
+        <div class="step-num">03 / Earn</div>
+        <h3>Approve with one click</h3>
+        <p>A person on your team approves or edits every draft. Once approved, it enters the queue to be published directly to the public thread.</p>
+      </article>
     </div>
   </section>
-  <footer>ReplyInPublic. Public support, drafted from the brand's own documents, sent only after a person approves.</footer>
+
+  <section class="stats-section">
+    <h2>Live workspace data</h2>
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <section>
+    <div class="band">
+      <div>
+        <h2>Turn public feedback into your best marketing.</h2>
+        <p>Stop paying for survey panels to tell you what customers are already shouting for free in the comments. Put your brand on the desk today.</p>
+      </div>
+      <a class="cta" href="/app">Open the workspace</a>
+    </div>
+  </section>
+
+  <footer>
+    <div>ReplyInPublic — Surveys measure satisfaction. Replies earn it.</div>
+    <div><a href="/app">Workspace desk</a> · <a href="/console">Brand console</a></div>
+  </footer>
+
   <script>
     fetch("/api/public").then((r) => r.json()).then((data) => {
       const box = document.getElementById("stats");
       const items = [
-        [String(data.mentions || 0), "public comments stored"],
-        [String(data.actionable || 0), "complaints, questions, and buyers"],
-        [String((data.platforms || []).length), "platforms in the inbox"],
-        [String(data.kb_brands || 0), "brands with support pages loaded"],
+        [String(data.mentions || 0), "public comments tracked"],
+        [String(data.actionable || 0), "unprompted complaints & questions"],
+        [String((data.platforms || []).length), "social platforms monitored"],
+        [String(data.kb_brands || 0), "brands with verified manuals loaded"],
       ];
       for (const [value, label] of items) {
         const card = document.createElement("div");
