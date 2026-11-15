@@ -11,6 +11,7 @@ import {
   Columns3,
   Gauge,
   BookOpen,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ import {
   REPLY_LABEL,
 } from "@/lib/overheard/logic";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Logo } from "./Logo";
 import { signOut, type Me } from "@/lib/overheard/data";
 
@@ -86,7 +88,19 @@ export function Sidebar({ f, set, brands, themes, mentions, counts, me }: Props)
   const issueOptions: [string, string][] = themes
     .filter((t) => !f.brand || t.brand_id === f.brand)
     .map((t) => [t.id, f.brand ? t.name : `${brands.find((b) => b.id === t.brand_id)?.name ?? ""}: ${t.name}`]);
-  const active = [f.where !== "all", f.brand, f.platform, f.theme, f.type, f.reply, f.urgency].filter(Boolean).length;
+  // What is switched on, in plain words, shown under the button so a closed panel hides nothing.
+  const activeNames = [
+    f.reply && REPLY_LABEL[f.reply as keyof typeof REPLY_LABEL],
+    f.type && (f.type === "purchase_intent" ? "Buyer" : f.type === "complaint" ? "Complaint" : "Question"),
+    f.urgency && `${f.urgency[0]?.toUpperCase()}${f.urgency.slice(1)} urgency`,
+    f.brand && brands.find((b) => b.id === f.brand)?.name,
+    f.theme && themes.find((t) => t.id === f.theme)?.name,
+    f.platform && (PLATFORM_LABEL[f.platform] ?? f.platform),
+    f.where !== "all" && (f.where === "owned" ? "Brand's own posts" : "Other people's posts"),
+  ].filter((x): x is string => Boolean(x));
+  const active = activeNames.length;
+  const clearFilters = () =>
+    set({ where: "all", brand: "", platform: "", theme: "", type: "", reply: "", urgency: "" });
 
   // A brand team has one brand, so the client list is not shown to it.
   const OVERVIEWS = ALL_OVERVIEWS.filter((o) => o.id !== "brands" || me.role === "rip");
@@ -133,45 +147,72 @@ export function Sidebar({ f, set, brands, themes, mentions, counts, me }: Props)
         ))}
       </div>
 
-      <div className="space-y-2.5 px-2">
-        <div className="flex items-center justify-between">
-          <Label>Filters</Label>
-          {active > 0 && (
-            <button
-              onClick={() => set({ where: "all", brand: "", platform: "", theme: "", type: "", reply: "", urgency: "" })}
-              className="text-[11px] text-stamp hover:underline"
-            >
-              Clear {active}
-            </button>
-          )}
-        </div>
-        {listView && (
-          <Pick label="Reply status" value={f.reply ?? ""} onChange={(v) => set({ reply: v })} all="Any reply status" counts={count("reply")}
-            options={REPLY_STATES.map((r) => [r, REPLY_LABEL[r]])} />
-        )}
-        {listView && (
-          <Pick label="Tag" value={f.type ?? ""} onChange={(v) => set({ type: v })} all="All tags" counts={count("type")}
-            options={[["complaint", "Complaint"], ["question", "Question"], ["purchase_intent", "Buyer"]]} />
-        )}
-        {listView && (
-          <Pick label="Urgency" value={f.urgency ?? ""} onChange={(v) => set({ urgency: v })} all="Any urgency" counts={count("urgency")}
-            options={[["high", "High"], ["medium", "Medium"], ["low", "Low"]]} />
-        )}
-        {brands.length > 1 && (
-          <Pick label="Client" value={f.brand} onChange={(v) => set({ brand: v, theme: "" })} all="All clients" counts={count("brand")}
-            options={brands.map((b) => [b.id, b.name])} />
-        )}
-        {listView && issueOptions.length > 0 && (
-          <Pick label="Issue" value={f.theme} onChange={(v) => set({ theme: v })} all="All issues" counts={count("theme")}
-            options={issueOptions} hideEmpty />
-        )}
-        <Pick label="Platform" value={f.platform} onChange={(v) => set({ platform: v })} all="All platforms" counts={count("platform")}
-          options={platforms.map((p) => [p, PLATFORM_LABEL[p] ?? p])} />
-        <Pick label="Where" value={f.where} onChange={(v) => set({ where: v as Where })} all="Everywhere" allValue="all" counts={count("where")}
-          options={[["owned", "Brand's own posts"], ["earned", "Other people's posts"]]} />
-        {f.view !== "pipeline" && listView && (
-          <Pick label="Sort" value={f.sort} onChange={(v) => set({ sort: v as Sort })}
-            options={[["newest", "Newest first"], ["oldest", "Oldest first"], ["priority", "Highest priority"]]} />
+      <div className="px-2">
+        <Popover>
+          <div className="flex items-center gap-2">
+            <PopoverTrigger asChild>
+              <button
+                className={cn(
+                  "flex flex-1 items-center gap-2 rounded-sm border bg-card px-2 py-1.5 text-left text-sm hover:bg-accent/50",
+                  active > 0 && "border-stamp/60 font-medium",
+                )}
+              >
+                <SlidersHorizontal className="size-4" />
+                <span className="flex-1">Filters</span>
+                {active > 0 && (
+                  <span className="rounded-sm bg-stamp px-1.5 font-mono text-xs text-primary-foreground">{active}</span>
+                )}
+              </button>
+            </PopoverTrigger>
+            {active > 0 && (
+              <button onClick={clearFilters} className="text-[11px] text-stamp hover:underline">
+                Clear
+              </button>
+            )}
+          </div>
+          <PopoverContent side="right" align="start" className="max-h-[80vh] w-64 space-y-2.5 overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <Label>Filters</Label>
+              {active > 0 && (
+                <button onClick={clearFilters} className="text-[11px] text-stamp hover:underline">
+                  Clear {active}
+                </button>
+              )}
+            </div>
+            {listView && (
+              <Pick label="Reply status" value={f.reply ?? ""} onChange={(v) => set({ reply: v })} all="Any reply status" counts={count("reply")}
+                options={REPLY_STATES.map((r) => [r, REPLY_LABEL[r]])} />
+            )}
+            {listView && (
+              <Pick label="Tag" value={f.type ?? ""} onChange={(v) => set({ type: v })} all="All tags" counts={count("type")}
+                options={[["complaint", "Complaint"], ["question", "Question"], ["purchase_intent", "Buyer"]]} />
+            )}
+            {listView && (
+              <Pick label="Urgency" value={f.urgency ?? ""} onChange={(v) => set({ urgency: v })} all="Any urgency" counts={count("urgency")}
+                options={[["high", "High"], ["medium", "Medium"], ["low", "Low"]]} />
+            )}
+            {brands.length > 1 && (
+              <Pick label="Client" value={f.brand} onChange={(v) => set({ brand: v, theme: "" })} all="All clients" counts={count("brand")}
+                options={brands.map((b) => [b.id, b.name])} />
+            )}
+            {listView && issueOptions.length > 0 && (
+              <Pick label="Issue" value={f.theme} onChange={(v) => set({ theme: v })} all="All issues" counts={count("theme")}
+                options={issueOptions} hideEmpty />
+            )}
+            <Pick label="Platform" value={f.platform} onChange={(v) => set({ platform: v })} all="All platforms" counts={count("platform")}
+              options={platforms.map((p) => [p, PLATFORM_LABEL[p] ?? p])} />
+            <Pick label="Where" value={f.where} onChange={(v) => set({ where: v as Where })} all="Everywhere" allValue="all" counts={count("where")}
+              options={[["owned", "Brand's own posts"], ["earned", "Other people's posts"]]} />
+            {f.view !== "pipeline" && listView && (
+              <Pick label="Sort" value={f.sort} onChange={(v) => set({ sort: v as Sort })}
+                options={[["newest", "Newest first"], ["oldest", "Oldest first"], ["priority", "Highest priority"]]} />
+            )}
+          </PopoverContent>
+        </Popover>
+        {active > 0 && (
+          <p className="mt-1.5 truncate text-[11px] text-muted-foreground" title={activeNames.join(", ")}>
+            {activeNames.join(", ")}
+          </p>
         )}
       </div>
 
