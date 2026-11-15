@@ -51,6 +51,10 @@
     .reply { margin-top: 8px; color: var(--green); font-size: 15px; }
     #copilot { margin-top: 12px; padding: 14px; border: 1px solid var(--ink); background: var(--card); }
     #copilot article { margin-top: 10px; }
+  .case { font: 12px ui-sans-serif, sans-serif; color: var(--muted); margin-bottom: 8px; }
+  .draft-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .draft-actions button { width: auto; margin: 0; padding: 6px 12px; font-size: 12px; }
+  #draft-edit { width: 100%; margin-top: 8px; font: 14px/1.4 ui-sans-serif, sans-serif; padding: 8px; border: 1px solid var(--line); }
     @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -142,7 +146,13 @@
         meta.className = "meta";
         const when = comment.posted_at.replace("T", " ").slice(0, 16);
         const state = comment.brand_replied === false ? "unanswered" : (comment.brand_replied ? "replied" : "unknown");
-        meta.textContent = comment.brand + " · " + (comment.platform || "youtube") + " · " + (comment.author || "someone") + " · " + comment.surface + " · " + when + " · ";
+        const caseBit = comment.case_id ? " · " + comment.case_id : "";
+        meta.textContent = comment.brand + caseBit + " · " + (comment.platform || "youtube") + " · " + (comment.author || "someone") + " · " + comment.surface + " · " + when + " · ";
+        if (comment.reply_due_at && comment.brand_replied === false) {
+          const due = document.createElement("span");
+          due.textContent = " · reply due " + comment.reply_due_at.replace("T", " ").slice(0, 16);
+          meta.appendChild(due);
+        }
         const mark = document.createElement("span");
         mark.className = state === "unanswered" ? "unanswered" : (state === "replied" ? "replied" : "");
         mark.textContent = state;
@@ -175,7 +185,9 @@
       const fromUrl = params.get("token");
       if (fromUrl) sessionStorage.setItem("rip_copilot_token", fromUrl);
     })();
+    let activeComment = null;
     function openCopilot(comment) {
+      activeComment = comment;
       const box = document.getElementById("copilot");
       box.hidden = false;
       box.textContent = "Reading the manuals.";
@@ -187,9 +199,31 @@
       if (copilotToken) query.set("token", copilotToken);
       fetch("/api/copilot?" + query).then((response) => response.json()).then((data) => {
         box.replaceChildren();
+        const head = document.createElement("div");
+        head.className = "case";
+        let line = "";
+        if (data.case_id) line += "Case " + data.case_id + ". ";
+        if (data.support_contact) line += "Escalate to " + data.support_contact + ".";
+        else line += "No named support contact on file yet.";
+        head.textContent = line;
+        box.appendChild(head);
         const reply = document.createElement("p");
         reply.textContent = data.reply;
         box.appendChild(reply);
+        const edit = document.createElement("textarea");
+        edit.id = "draft-edit";
+        edit.rows = 3;
+        edit.value = data.reply;
+        box.appendChild(edit);
+        const actions = document.createElement("div");
+        actions.className = "draft-actions";
+        for (const [label, action] of [["Approve draft", "approve"], ["Save edit", "edit"], ["Reject draft", "reject"]]) {
+          const btn = document.createElement("button");
+          btn.textContent = label;
+          btn.onclick = () => submitDraft(action, edit.value);
+          actions.appendChild(btn);
+        }
+        box.appendChild(actions);
         for (const passage of data.passages || []) {
           const block = document.createElement("article");
           const text = document.createElement("p");
@@ -206,7 +240,25 @@
         box.textContent = "not in the manuals, send to the brand's support person";
       });
     }
-    const grokPrompt = `Search X for the 15 most recent public customer complaints, product issues, or questions about Instant Pot, KitchenAid, Traeger, Ninja, or De'Longhi from the last 7 days. Output strictly raw JSON lines (one JSON object per line) with no markdown fences, no explanations. Format each line like:
+    async function submitDraft(action, finalText) {
+      if (!activeComment) return;
+      const copilotToken = sessionStorage.getItem("rip_copilot_token");
+      const headers = { "Content-Type": "application/json" };
+      const query = new URLSearchParams();
+      if (copilotToken) query.set("token", copilotToken);
+      const response = await fetch("/api/draft?" + query, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          mention_id: activeComment.id,
+          posted_at: activeComment.posted_at,
+          action,
+          final_text: finalText,
+        }),
+      });
+      if (response.ok) load();
+    }
+    const grokPrompt = `Search X for the 15 most recent public customer complaints, product issues, or questions about KitchenAid, Nespresso, Breville, Instant Pot, or Ninja from the last 7 days. Output strictly raw JSON lines (one JSON object per line) with no markdown fences, no explanations. Format each line like:
 {"brand_id": "ninja", "platform": "x", "author": "@username", "text": "my blender broke after 2 days", "url": "https://x.com/username/status/1234567890", "posted_at": "2026-11-14T12:00:00Z"}`;
 
     const toggleBtn = document.getElementById("toggle-ingest");

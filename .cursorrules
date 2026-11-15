@@ -2,12 +2,12 @@
 
 When asked to search, verify, or scrape customer mentions from X (Twitter):
 
-1. **Search X:** Look for real public customer complaints, defects, or support questions regarding:
-   - Instant Pot (`instant`)
+1. **Search X:** Look for real public customer complaints, defects, or support questions regarding the focus five in `focus.json`:
    - KitchenAid (`kitchenaid`)
-   - Traeger (`traeger`)
+   - Nespresso (`nespresso`)
+   - Breville (`breville`)
+   - Instant Pot (`instant`)
    - Ninja (`ninja`)
-   - De'Longhi (`delonghi`)
 
 2. **Send Directly (No Copy/Paste):**
    Do NOT ask the user to copy or paste output. Execute your local tool to push directly into the ReplyInPublic pipeline:

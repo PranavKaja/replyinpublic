@@ -37,6 +37,10 @@ def apply() -> None:
             for statement in statements:
                 cur.execute(statement)
             _labels_foreign_key(cur)
+    from app.hooks import apply_phase_hooks
+
+    with connect() as conn:
+        apply_phase_hooks(conn)
     print("schema applied")
 
 

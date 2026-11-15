@@ -4,12 +4,13 @@ import json
 import os
 import threading
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 from app.db import ROOT, connect, load_env
+from app.hooks import save_reply_draft, update_draft_status
 from app.ingest import ingest_records, parse_raw_lines
 
 app = FastAPI(title="ReplyInPublic")
@@ -120,33 +121,72 @@ def _preview(brand: str, unanswered: int) -> dict:
             cur.execute(
                 f"""
                 SELECT m.id, b.id, b.name, m.author, m.text, m.url, m.posted_at,
-                       m.brand_replied, m.surface, m.reply_text, l.type, m.platform
+                       m.brand_replied, m.surface, m.reply_text, l.type, m.platform,
+                       m.case_id, m.proof, m.brand_reply_at, m.brand_reply_author,
+                       b.support_contact, b.reply_sla_hours,
+                       d.status, d.draft_text, d.final_text
                 FROM mentions m
                 JOIN brands b ON b.id = m.brand_id
                 LEFT JOIN labels l ON l.mention_id = m.id AND l.posted_at = m.posted_at
+                LEFT JOIN reply_drafts d ON d.mention_id = m.id AND d.posted_at = m.posted_at
                 WHERE {' AND '.join(filters)}
                 ORDER BY m.posted_at DESC
                 LIMIT %s
                 """,
                 params,
             )
-            comments = [
-                {
+            comments = []
+            for row in cur.fetchall():
+                (
+                    mention_id,
+                    brand_id,
+                    name,
+                    author,
+                    text,
+                    url,
+                    posted_at,
+                    replied,
+                    surface,
+                    reply_text,
+                    kind,
+                    platform,
+                    case_id,
+                    proof,
+                    brand_reply_at,
+                    brand_reply_author,
+                    support_contact,
+                    sla_hours,
+                    draft_status,
+                    draft_text,
+                    final_text,
+                ) = row
+                posted_iso = posted_at.isoformat() if isinstance(posted_at, datetime) else str(posted_at)
+                due_iso = None
+                if isinstance(posted_at, datetime) and replied is False and sla_hours:
+                    due = posted_at + timedelta(hours=int(sla_hours))
+                    due_iso = due.isoformat()
+                comments.append({
                     "id": mention_id,
                     "brand_id": brand_id,
                     "brand": name,
                     "author": author,
                     "text": text,
                     "url": url,
-                    "posted_at": posted_at.isoformat() if isinstance(posted_at, datetime) else str(posted_at),
+                    "posted_at": posted_iso,
                     "brand_replied": replied,
                     "surface": surface,
                     "reply_text": reply_text,
                     "type": kind,
                     "platform": platform,
-                }
-                for mention_id, brand_id, name, author, text, url, posted_at, replied, surface, reply_text, kind, platform in cur.fetchall()
-            ]
+                    "case_id": case_id,
+                    "proof": proof,
+                    "brand_reply_at": brand_reply_at.isoformat() if isinstance(brand_reply_at, datetime) else None,
+                    "brand_reply_author": brand_reply_author,
+                    "support_contact": support_contact,
+                    "reply_due_at": due_iso,
+                    "draft_status": draft_status,
+                    "draft_text": final_text or draft_text,
+                })
     return {
         "total": total,
         "visible": visible,
@@ -229,91 +269,107 @@ async def api_ingest(request: Request, token: str = "") -> dict:
     return result
 
 
+def _load_mention(cur, mention_id: int, posted_at: str):
+    if posted_at:
+        posted_at = posted_at.strip().replace(" ", "+")
+        try:
+            cur.execute(
+                """
+                SELECT m.text, m.brand_id, b.name, m.posted_at, m.case_id,
+                       b.support_contact, b.reply_sla_hours
+                FROM mentions m
+                JOIN brands b ON b.id = m.brand_id
+                WHERE m.id = %s AND m.posted_at = %s
+                """,
+                (mention_id, posted_at),
+            )
+            row = cur.fetchone()
+            if row:
+                return row
+        except Exception:
+            pass
+    cur.execute(
+        """
+        SELECT m.text, m.brand_id, b.name, m.posted_at, m.case_id,
+               b.support_contact, b.reply_sla_hours
+        FROM mentions m
+        JOIN brands b ON b.id = m.brand_id
+        WHERE m.id = %s
+        ORDER BY m.posted_at DESC
+        LIMIT 1
+        """,
+        (mention_id,),
+    )
+    return cur.fetchone()
+
+
+def _passages_for(cur, key: str, text: str, brand_id: str) -> list[dict]:
+    passages = []
+    try:
+        vector = _embed(key, text)
+        cur.execute(
+            """
+            SELECT text, source_url, embedding <=> %s::vector AS distance
+            FROM kb_chunks
+            WHERE brand_id = %s AND embedding IS NOT NULL
+            ORDER BY embedding <=> %s::vector
+            LIMIT 3
+            """,
+            (str(vector), brand_id, str(vector)),
+        )
+        passages = [
+            {"text": chunk, "source_url": url, "distance": float(distance)}
+            for chunk, url, distance in cur.fetchall()
+        ]
+    except Exception:
+        passages = []
+    if not passages:
+        words = {word.lower() for word in text.split() if len(word) > 3}
+        cur.execute(
+            "SELECT text, source_url FROM kb_chunks WHERE brand_id = %s",
+            (brand_id,),
+        )
+        scored = []
+        for chunk, url in cur.fetchall():
+            overlap = sum(1 for word in words if word in chunk.lower())
+            scored.append((overlap, chunk, url))
+        scored.sort(reverse=True)
+        passages = [
+            {"text": chunk, "source_url": url, "distance": None}
+            for overlap, chunk, url in scored[:3]
+            if overlap > 0
+        ]
+    return passages
+
+
 @app.get("/api/copilot")
 def copilot(mention_id: int, posted_at: str = "", token: str = "") -> dict:
     if not _copilot_allowed(token):
         return {"passages": [], "reply": "copilot token required"}
     load_env()
     key = os.environ.get("GEMINI_API_KEY", "").strip()
-    if posted_at:
-        posted_at = posted_at.strip().replace(" ", "+")
 
     with db() as conn:
         with conn.cursor() as cur:
-            row = None
-            if posted_at:
-                try:
-                    cur.execute(
-                        """
-                        SELECT m.text, m.brand_id, b.name
-                        FROM mentions m
-                        JOIN brands b ON b.id = m.brand_id
-                        WHERE m.id = %s AND m.posted_at = %s
-                        """,
-                        (mention_id, posted_at),
-                    )
-                    row = cur.fetchone()
-                except Exception:
-                    conn.rollback()
-            if not row:
-                cur.execute(
-                    """
-                    SELECT m.text, m.brand_id, b.name
-                    FROM mentions m
-                    JOIN brands b ON b.id = m.brand_id
-                    WHERE m.id = %s
-                    LIMIT 1
-                    """,
-                    (mention_id,),
-                )
-                row = cur.fetchone()
-
+            row = _load_mention(cur, mention_id, posted_at)
             if not row:
                 return {"passages": [], "reply": "not in the manuals, send to the brand's support person"}
-            text, brand_id, brand_name = row
-            passages = []
-            try:
-                vector = _embed(key, text)
-                cur.execute(
-                    """
-                    SELECT text, source_url, embedding <=> %s::vector AS distance
-                    FROM kb_chunks
-                    WHERE brand_id = %s AND embedding IS NOT NULL
-                    ORDER BY embedding <=> %s::vector
-                    LIMIT 3
-                    """,
-                    (str(vector), brand_id, str(vector)),
-                )
-                passages = [
-                    {"text": chunk, "source_url": url, "distance": float(distance)}
-                    for chunk, url, distance in cur.fetchall()
-                ]
-            except Exception:
-                passages = []
-            if not passages:
-                words = {word.lower() for word in text.split() if len(word) > 3}
-                cur.execute(
-                    "SELECT text, source_url FROM kb_chunks WHERE brand_id = %s",
-                    (brand_id,),
-                )
-                scored = []
-                for chunk, url in cur.fetchall():
-                    overlap = sum(1 for word in words if word in chunk.lower())
-                    scored.append((overlap, chunk, url))
-                scored.sort(reverse=True)
-                passages = [
-                    {"text": chunk, "source_url": url, "distance": None}
-                    for overlap, chunk, url in scored[:3]
-                    if overlap > 0
-                ]
+            text, brand_id, brand_name, mention_posted_at, case_id, support_contact, sla_hours = row
+            passages = _passages_for(cur, key, text, brand_id)
     if not passages:
-        return {"passages": [], "reply": "not in the manuals, send to the brand's support person"}
+        return {
+            "passages": [],
+            "reply": "not in the manuals, send to the brand's support person",
+            "case_id": case_id,
+            "support_contact": support_contact,
+        }
     packed = "\n\n".join(
         f"Source: {item['source_url']}\n{item['text']}" for item in passages
     )
     prompt = (
         f"The brand is {brand_name}. A customer wrote:\n{text}\n\n"
         "Use only the manual passages below. Do not add facts that are not in them. "
+        "Do not promise refunds, replacements, or incentives unless the passages say so. "
         "If they do not answer the customer, reply with exactly: "
         "not in the manuals, send to the brand's support person\n"
         "Otherwise write a short public reply in one or two sentences.\n\n"
@@ -338,4 +394,34 @@ def copilot(mention_id: int, posted_at: str = "", token: str = "") -> dict:
         reply = reply.strip() or "not in the manuals, send to the brand's support person"
     except Exception:
         reply = "not in the manuals, send to the brand's support person"
-    return {"passages": passages, "reply": reply}
+    with db() as conn:
+        save_reply_draft(conn, mention_id, mention_posted_at, reply, passages)
+    return {
+        "passages": passages,
+        "reply": reply,
+        "case_id": case_id,
+        "support_contact": support_contact,
+        "reply_sla_hours": sla_hours,
+    }
+
+
+@app.post("/api/draft")
+async def api_draft(request: Request, token: str = "") -> dict:
+    if not _copilot_allowed(token):
+        raise HTTPException(status_code=401, detail="copilot token required")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="JSON body required")
+    mention_id = int(payload.get("mention_id") or 0)
+    posted_at = str(payload.get("posted_at") or "").strip()
+    action = str(payload.get("action") or "").strip().lower()
+    final_text = payload.get("final_text")
+    if not mention_id or not posted_at or action not in {"approve", "edit", "reject"}:
+        raise HTTPException(status_code=400, detail="mention_id, posted_at, and action required")
+    status = {"approve": "approved", "edit": "edited", "reject": "rejected"}[action]
+    with db() as conn:
+        ok = update_draft_status(conn, mention_id, posted_at, status, final_text)
+    if not ok:
+        raise HTTPException(status_code=404, detail="open copilot on this message first")
+    return {"status": status, "mention_id": mention_id}

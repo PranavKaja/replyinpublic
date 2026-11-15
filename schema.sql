@@ -10,7 +10,9 @@ CREATE TABLE IF NOT EXISTS brands (
   youtube_channel_id text NOT NULL,
   instagram_handle text,
   own_handles text[] NOT NULL DEFAULT '{}',
-  search_terms text[] NOT NULL DEFAULT '{}'
+  search_terms text[] NOT NULL DEFAULT '{}',
+  support_contact text,
+  reply_sla_hours integer NOT NULL DEFAULT 48
 );
 
 -- Video ids found by search or by the brand's own uploads playlist.
@@ -53,6 +55,9 @@ CREATE TABLE IF NOT EXISTS mentions (
   parent_url text,
   brand_replied boolean,
   reply_text text,
+  brand_reply_at timestamptz,
+  brand_reply_author text,
+  case_id text,
   proof text,
   collected_by text,
   collected_at timestamptz NOT NULL DEFAULT now(),
@@ -68,6 +73,23 @@ CREATE INDEX IF NOT EXISTS mentions_brand_posted_idx
 CREATE INDEX IF NOT EXISTS mentions_unanswered_idx
   ON mentions (brand_id, posted_at DESC)
   WHERE brand_replied IS FALSE;
+
+CREATE INDEX IF NOT EXISTS mentions_case_id_idx
+  ON mentions (case_id)
+  WHERE case_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS reply_drafts (
+  mention_id bigint NOT NULL,
+  posted_at timestamptz NOT NULL,
+  draft_text text NOT NULL,
+  final_text text,
+  status text NOT NULL DEFAULT 'suggested',
+  source_passages jsonb,
+  model text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (mention_id, posted_at)
+);
 
 -- posted_at is here so a foreign key to the hypertable can include the partition column.
 -- If that foreign key is rejected, mention_id stays a plain indexed column.

@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from app.db import ROOT, connect, load_env
+from app.hooks import stamp_case_id
 from app.segment import ensure_labels, is_noise, save_label
 
 FOCUS_PATH = ROOT / "focus.json"
@@ -134,6 +135,7 @@ def insert_row(conn, row: dict) -> str:
         saved = cur.fetchone()
     if not saved:
         return "old"
+    stamp_case_id(cur, saved[0], row["brand_id"])
     if is_noise(row["text"]):
         save_label(conn, saved[0], saved[1], {
             "type": "noise",

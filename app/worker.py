@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from app.db import ROOT, connect, load_env
+from app.hooks import stamp_case_id
 from app.youtube import CommentsDisabled, QuotaExceeded, YouTube, YouTubeError
 
 EASTERN = ZoneInfo("America/New_York")
@@ -476,7 +477,7 @@ def mention_from_thread(yt: YouTube, brand: dict, video: dict, thread: dict):
         return "reject", None, "no_time", False
     inline = ((thread.get("replies") or {}).get("comments") or [])
     total = int(snippet.get("totalReplyCount") or 0)
-    replied, reply_text, truncated = resolve_brand_reply(
+    replied, reply_text, truncated, reply_at, reply_author = resolve_brand_reply(
         yt, brand["youtube_channel_id"], total, top.get("id"), inline
     )
     row = {
@@ -490,6 +491,8 @@ def mention_from_thread(yt: YouTube, brand: dict, video: dict, thread: dict):
         "parent_url": f"https://www.youtube.com/watch?v={video['video_id']}",
         "brand_replied": replied,
         "reply_text": reply_text,
+        "brand_reply_at": reply_at,
+        "brand_reply_author": reply_author,
     }
     return "keep", row, None, truncated
 
@@ -502,13 +505,19 @@ def resolve_brand_reply(yt: YouTube, channel_id: str, total: int, parent_id: str
     """
     if total > 5:
         if not parent_id:
-            return None, None, True
+            return None, None, True, None, None
         replies, truncated = yt.all_replies(parent_id, channel_id, REPLY_PAGE_CAP)
         return _status_from_replies(replies, channel_id, truncated)
     if total > len(inline) and parent_id:
         replies, truncated = yt.all_replies(parent_id, channel_id, REPLY_PAGE_CAP)
         return _status_from_replies(replies, channel_id, truncated)
     return _status_from_replies(inline, channel_id, False)
+
+
+def _parse_yt_time(raw: str | None):
+    if not raw:
+        return None
+    return datetime.fromisoformat(raw.replace("Z", "+00:00"))
 
 
 def _status_from_replies(replies: list[dict], channel_id: str, truncated: bool):
@@ -520,11 +529,14 @@ def _status_from_replies(replies: list[dict], channel_id: str, truncated: bool):
             hits.append(snippet)
     if hits:
         hits.sort(key=lambda snippet: snippet.get("publishedAt") or "")
-        text = (hits[0].get("textOriginal") or hits[0].get("textDisplay") or "").strip() or None
-        return True, text, False
+        first = hits[0]
+        text = (first.get("textOriginal") or first.get("textDisplay") or "").strip() or None
+        reply_at = _parse_yt_time(first.get("publishedAt"))
+        reply_author = (first.get("authorDisplayName") or "").lstrip("@").strip() or None
+        return True, text, False, reply_at, reply_author
     if truncated:
-        return None, None, True
-    return False, None, False
+        return None, None, True, None, None
+    return False, None, False, None, None
 
 
 def insert_mention(conn, row: dict) -> bool:
@@ -533,18 +545,21 @@ def insert_mention(conn, row: dict) -> bool:
             """
             INSERT INTO mentions (
               posted_at, brand_id, platform, surface, native_id, url, author, text,
-              parent_url, brand_replied, reply_text, proof, collected_by
+              parent_url, brand_replied, reply_text, brand_reply_at, brand_reply_author,
+              proof, collected_by
             ) VALUES (
               %(posted_at)s, %(brand_id)s, 'youtube', %(surface)s, %(native_id)s, %(url)s,
               %(author)s, %(text)s, %(parent_url)s, %(brand_replied)s, %(reply_text)s,
-              'api', 'youtube'
+              %(brand_reply_at)s, %(brand_reply_author)s, 'api', 'youtube'
             )
             ON CONFLICT (platform, native_id, posted_at) DO NOTHING
-            RETURNING 1
+            RETURNING id
             """,
             row,
         )
-        if cur.fetchone():
+        inserted = cur.fetchone()
+        if inserted:
+            stamp_case_id(cur, inserted[0], row["brand_id"])
             return True
         cur.execute(
             """
@@ -560,6 +575,8 @@ def insert_mention(conn, row: dict) -> bool:
                 ELSE %(brand_replied)s
               END,
               reply_text = COALESCE(%(reply_text)s, reply_text),
+              brand_reply_at = COALESCE(%(brand_reply_at)s, brand_reply_at),
+              brand_reply_author = COALESCE(%(brand_reply_author)s, brand_reply_author),
               proof = 'api',
               collected_by = 'youtube',
               collected_at = now()
