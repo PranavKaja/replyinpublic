@@ -31,8 +31,7 @@ button { cursor: pointer; }
 a { color: inherit; }
 .app { display: flex; height: 100dvh; overflow: hidden; }
 .side { width: 220px; flex: none; border-right: 1px solid var(--border); background: var(--side); display: flex; flex-direction: column; gap: 12px; padding: 12px; overflow: auto; }
-.logo { display: flex; align-items: center; padding: 4px 8px 8px; font-size: 18px; font-weight: 500; letter-spacing: -0.03em; }
-.logo svg { height: 0.9em; width: auto; color: var(--primary); margin-right: 2px; }
+.logo { display: flex; align-items: center; padding: 4px 8px 8px; font-size: 18px; font-weight: 600; letter-spacing: -0.03em; text-decoration: none; }
 .navbtn { display: flex; width: 100%; align-items: center; gap: 8px; border: 0; background: transparent; border-radius: 6px; padding: 4px 8px; text-align: left; color: var(--muted-fg); }
 .navbtn.on { background: var(--accent); color: var(--fg); font-weight: 500; }
 .navbtn:hover { background: color-mix(in srgb, var(--accent) 70%, transparent); color: var(--fg); }
@@ -143,11 +142,7 @@ textarea.draft { min-height: 90px; }
   const rel = m => { const h = Math.floor(ageH(m)); return h < 1 ? "just now" : h < 48 ? h + "h ago" : Math.floor(h / 24) + "d ago"; };
   const surface = m => m.surface === "own" ? "owned" : "earned";
   const toast = t => { const el = document.getElementById("toast"); el.textContent = t; el.classList.add("on"); setTimeout(() => el.classList.remove("on"), 1800); };
-  const logo = () => {
-    const el = $("a", { class: "logo", href: "/", text: "ReplyInPublic" });
-    el.insertAdjacentHTML("afterbegin", '<svg viewBox="0 0 52 40" aria-hidden="true"><path d="M6 9 A16 16 0 0 0 6 31" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M13 13.5 A10 10 0 0 0 13 26.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle cx="34" cy="20" r="14.5" fill="none" stroke="currentColor" stroke-width="5"/></svg>');
-    return el;
-  };
+  const logo = () => $("a", { class: "logo", href: "/", text: "ReplyInPublic" });
 
   function pool() {
     return messages.filter(m => {
