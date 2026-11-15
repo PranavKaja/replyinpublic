@@ -111,7 +111,7 @@ export function Reader({ m, brand, theme, siblings, act, onSelect, onBack }: Pro
                   {siblings.length + 1} messages
                 </span>
               </div>
-              <ul className="divide-y rounded-sm border">
+              <ul className="max-h-64 divide-y overflow-y-auto overscroll-contain rounded-sm border">
                 {siblings.map((s) => (
                   <li key={s.id}>
                     <button
