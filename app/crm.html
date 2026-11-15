@@ -3,9 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Overheard</title>
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="icon" href="/favicon.png" type="image/png" sizes="64x64">
+<title>ReplyInPublic</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -33,9 +31,8 @@ button { cursor: pointer; }
 a { color: inherit; }
 .app { display: flex; height: 100dvh; overflow: hidden; }
 .side { width: 220px; flex: none; border-right: 1px solid var(--border); background: var(--side); display: flex; flex-direction: column; gap: 12px; padding: 12px; overflow: auto; }
-.logo { display: block; padding: 6px 8px 10px; }
-.logo img { height: 26px; width: auto; display: block; }
-html.dark .logo img { filter: brightness(0) invert(1); }
+.logo { display: flex; align-items: center; padding: 4px 8px 8px; font-size: 18px; font-weight: 500; letter-spacing: -0.03em; }
+.logo svg { height: 0.9em; width: auto; color: var(--primary); margin-right: 2px; }
 .navbtn { display: flex; width: 100%; align-items: center; gap: 8px; border: 0; background: transparent; border-radius: 6px; padding: 4px 8px; text-align: left; color: var(--muted-fg); }
 .navbtn.on { background: var(--accent); color: var(--fg); font-weight: 500; }
 .navbtn:hover { background: color-mix(in srgb, var(--accent) 70%, transparent); color: var(--fg); }
@@ -146,7 +143,11 @@ textarea.draft { min-height: 90px; }
   const rel = m => { const h = Math.floor(ageH(m)); return h < 1 ? "just now" : h < 48 ? h + "h ago" : Math.floor(h / 24) + "d ago"; };
   const surface = m => m.surface === "own" ? "owned" : "earned";
   const toast = t => { const el = document.getElementById("toast"); el.textContent = t; el.classList.add("on"); setTimeout(() => el.classList.remove("on"), 1800); };
-  const logo = () => $("a", { class: "logo", href: "/" }, $("img", { src: "/brand/overheard-logo.png", alt: "Overheard" }));
+  const logo = () => {
+    const el = $("div", { class: "logo", text: "ReplyInPublic" });
+    el.insertAdjacentHTML("afterbegin", '<svg viewBox="0 0 52 40" aria-hidden="true"><path d="M6 9 A16 16 0 0 0 6 31" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M13 13.5 A10 10 0 0 0 13 26.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle cx="34" cy="20" r="14.5" fill="none" stroke="currentColor" stroke-width="5"/></svg>');
+    return el;
+  };
 
   function pool() {
     return messages.filter(m => {

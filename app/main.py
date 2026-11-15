@@ -7,7 +7,7 @@ import urllib.request
 from datetime import datetime, timedelta
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import HTMLResponse
 
 from app.db import ROOT, connect, load_env
 from app.hooks import mark_publish_demo, save_reply_draft, update_draft_status
@@ -23,22 +23,6 @@ def db():
     if _conn is None or _conn.closed:
         _conn = connect()
     return _conn
-
-
-@app.get("/favicon.ico", include_in_schema=False)
-@app.get("/favicon.png", include_in_schema=False)
-def favicon_png():
-    return FileResponse(ROOT / "app" / "brand" / "favicon.png", media_type="image/png")
-
-
-@app.get("/favicon.svg", include_in_schema=False)
-def favicon_svg():
-    return FileResponse(ROOT / "app" / "brand" / "favicon.svg", media_type="image/svg+xml")
-
-
-@app.get("/brand/overheard-logo.png", include_in_schema=False)
-def brand_logo():
-    return FileResponse(ROOT / "app" / "brand" / "overheard-logo.png", media_type="image/png")
 
 
 @app.get("/", response_class=HTMLResponse)
