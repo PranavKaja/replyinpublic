@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Copy, Heart, Eye } from "lucide-react";
+import { ArrowLeft, Copy, Heart, Eye, ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,11 +24,11 @@ interface Props {
 }
 
 const ISSUE_MOVES: [Status, string][] = [
-  ["feedback", "Feedback"],
-  ["parked", "Parked"],
-  ["snoozed", "Snoozed"],
-  ["handled", "Handled"],
-  ["inbox", "Inbox"],
+  ["feedback", "To feedback for brand"],
+  ["parked", "To parked for reply"],
+  ["snoozed", "Snooze 24h"],
+  ["handled", "Mark handled"],
+  ["inbox", "Back to inbox"],
 ];
 
 export function Reader({ m, brand, theme, siblings, act, onSelect, onBack, moveIssue, issueCount = 0 }: Props) {
@@ -115,26 +116,33 @@ export function Reader({ m, brand, theme, siblings, act, onSelect, onBack, moveI
               <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 Same issue
               </div>
-              <div className="font-serif text-lg">
-                {theme.name}{" "}
-                <span className="font-mono text-xs text-muted-foreground">
-                  {siblings.length + 1} messages
-                </span>
-              </div>
-              {moveIssue && issueCount > 1 && (
-                <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                  <span className="text-muted-foreground">Move all {issueCount} here to</span>
-                  {ISSUE_MOVES.filter(([st]) => st !== m.status).map(([st, label]) => (
-                    <button
-                      key={st}
-                      onClick={() => moveIssue(st)}
-                      className="rounded-sm border px-2 py-1 font-medium hover:bg-accent/60"
-                    >
-                      {label}
-                    </button>
-                  ))}
+              <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1 font-serif text-lg">
+                  {theme.name}{" "}
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {siblings.length + 1} messages
+                  </span>
                 </div>
-              )}
+                {moveIssue && issueCount > 1 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        aria-label={`Move all ${issueCount} messages in this issue`}
+                        className="flex shrink-0 items-center gap-1 rounded-sm border px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                      >
+                        Move all {issueCount} <ChevronDown className="size-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {ISSUE_MOVES.filter(([st]) => st !== m.status).map(([st, label]) => (
+                        <DropdownMenuItem key={st} onSelect={() => moveIssue(st)}>
+                          {label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
               <ul className="max-h-64 divide-y overflow-y-auto overscroll-contain rounded-sm border">
                 {siblings.map((s) => (
                   <li key={s.id}>
