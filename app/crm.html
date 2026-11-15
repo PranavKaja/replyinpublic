@@ -1,435 +1,455 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Workspace · ReplyInPublic</title>
-  <style>
-    :root {
-      color-scheme: light;
-      --ink: #14211c;
-      --muted: #5d675f;
-      --line: #e1e6e2;
-      --paper: #f3f5f2;
-      --card: #fff;
-      --side: #121a16;
-      --side-2: #1c2822;
-      --green: #0f6e56;
-      --red: #9c3418;
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; height: 100vh; display: grid; grid-template-columns: 220px 1fr; background: var(--paper); color: var(--ink); font: 14px/1.45 "Segoe UI", system-ui, sans-serif; }
-    aside { background: var(--side); color: #e7eee9; display: flex; flex-direction: column; padding: 18px 12px; }
-    .mark { font-weight: 650; letter-spacing: -0.03em; padding: 4px 8px 16px; }
-    .mark a { color: inherit; text-decoration: none; }
-    aside button {
-      display: block; width: 100%; text-align: left; background: transparent; color: #c9d5ce;
-      border: 0; border-radius: 8px; padding: 9px 10px; margin: 2px 0; cursor: pointer; font: inherit;
-    }
-    aside button.on { background: var(--side-2); color: #fff; }
-    aside .foot { margin-top: auto; padding: 10px; color: #8ea095; font-size: 12px; }
-    main { display: grid; grid-template-rows: auto 1fr; min-width: 0; }
-    .top { display: flex; gap: 10px; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); background: var(--card); }
-    .top h1 { margin: 0; font-size: 16px; font-weight: 650; }
-    select, input, textarea { font: inherit; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: #fff; color: var(--ink); }
-    .workspace { min-height: 0; }
-    .split { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; height: calc(100vh - 57px); }
-    .list, .detail, .panel { overflow: auto; }
-    .list { border-right: 1px solid var(--line); background: #fbfcfb; }
-    .row { padding: 12px 14px; border-bottom: 1px solid var(--line); cursor: pointer; }
-    .row.on { background: #e7f4ef; }
-    .meta { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
-    .clip { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .detail { padding: 18px 22px 40px; }
-    .pill { display: inline-block; border-radius: 999px; padding: 2px 8px; background: #eef2ef; font-size: 12px; margin-right: 6px; }
-    .pill.bad { background: #fde8e2; color: var(--red); }
-    .pill.ok { background: #e7f4ef; color: var(--green); }
-    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-    button.act { border: 0; background: var(--ink); color: #fff; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
-    button.line { background: #fff; color: var(--ink); border: 1px solid var(--line); }
-    textarea { width: 100%; min-height: 90px; margin-top: 8px; }
-    .passages { margin-top: 14px; }
-    .passages article { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px; color: var(--muted); }
-    table { width: 100%; border-collapse: collapse; background: var(--card); }
-    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
-    .panel { padding: 18px 22px 40px; }
-    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; max-width: 560px; }
-    label { display: block; margin: 10px 0 4px; color: var(--muted); font-size: 12px; }
-    .hidden { display: none; }
-    a.src { color: var(--green); }
-    @media (max-width: 900px) {
-      body { grid-template-columns: 1fr; height: auto; }
-      aside { flex-direction: row; flex-wrap: wrap; }
-      .split { grid-template-columns: 1fr; height: auto; }
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ReplyInPublic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Public+Sans:wght@400;500;600;700&family=Young+Serif&display=swap" rel="stylesheet">
+<style>
+/* Overheard v3, the triage inbox. Mood: quiet office desk; one signature, the message slip,
+   used once for the open message. */
+:root {
+  --ink: #1B2340; --ink-2: #444C68; --muted: #5F6678;
+  --desk: #EDEFF3; --panel: #FFFFFF; --sunk: #F6F7F9; --rule: #D5D9E0; --rule-2: #E6E9EE;
+  --select: #E2E8F5; --hover: #F1F3F7;
+  --slip: #F8D9DF; --slip-line: #E3AEBA;
+  --carbon: #F2E6A6; --carbon-ink: #5B4A00;
+  --stamp: #B3261E; --answered: #2E6B4F; --waiting: #4B5563;
+  --focus: #1D5FD1; --primary: #1B2340; --on-primary: #FFFFFF;
+  --serif: "Young Serif", Georgia, serif; --sans: "Public Sans", system-ui, sans-serif; --type: "Courier Prime", "Courier New", monospace;
+  --ease: cubic-bezier(.23, 1, .32, 1);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #E8EAF0; --ink-2: #B9BFCE; --muted: #9AA2B4;
+    --desk: #101319; --panel: #171B23; --sunk: #13161D; --rule: #2B313D; --rule-2: #222833;
+    --select: #243049; --hover: #1D222C;
+    --slip: #3A2A30; --slip-line: #5E434C; --carbon: #4A4426; --carbon-ink: #F2E6A6;
+    --stamp: #FF8A80; --answered: #7FD1A8; --waiting: #AEB5C3; --focus: #8AB4FF;
+    --primary: #E8EAF0; --on-primary: #101319; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --ink: #E8EAF0; --ink-2: #B9BFCE; --muted: #9AA2B4;
+  --desk: #101319; --panel: #171B23; --sunk: #13161D; --rule: #2B313D; --rule-2: #222833;
+  --select: #243049; --hover: #1D222C;
+  --slip: #3A2A30; --slip-line: #5E434C; --carbon: #4A4426; --carbon-ink: #F2E6A6;
+  --stamp: #FF8A80; --answered: #7FD1A8; --waiting: #AEB5C3; --focus: #8AB4FF;
+  --primary: #E8EAF0; --on-primary: #101319; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--desk); color: var(--ink); font: 400 14px/1.45 var(--sans); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+kbd { font: 600 11px var(--sans); border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; color: var(--muted); background: var(--panel); }
+
+/* shell */
+.app { display: grid; grid-template-columns: 232px minmax(320px, 440px) minmax(0, 1fr); height: 100vh; }
+.side { border-right: 1px solid var(--rule); background: var(--sunk); overflow-y: auto; padding: 16px 10px 24px; display: flex; flex-direction: column; gap: 18px; }
+.mark { font: 21px/1 var(--serif); padding: 4px 8px 0; }
+.mark small { display: block; font: 500 12px var(--sans); color: var(--muted); margin-top: 6px; }
+.nav-group h2 { font: 700 11px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0 8px 6px; }
+.nav-item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 6px 8px; cursor: pointer; color: var(--ink-2); transition: background-color 150ms var(--ease), color 150ms var(--ease); }
+.nav-item:hover { background: var(--hover); color: var(--ink); }
+.nav-item[aria-current="true"] { background: var(--select); color: var(--ink); font-weight: 600; }
+.nav-item .count { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; }
+.nav-item[aria-current="true"] .count { color: var(--ink); }
+.nav-item .name { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.tab-dot { width: 8px; height: 8px; border-radius: 2px; background: var(--carbon); flex: none; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
+.side-foot { margin-top: auto; padding: 0 8px; font-size: 12px; color: var(--muted); }
+.side-foot details summary { cursor: pointer; }
+.side-foot ul { margin: 6px 0 0; padding-left: 16px; }
+
+/* list column */
+.list-col { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--rule); background: var(--panel); }
+.list-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--rule-2); display: grid; gap: 10px; }
+.title-row { display: flex; align-items: baseline; gap: 10px; }
+.title-row h1 { font: 20px/1.2 var(--serif); margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.title-row .sub { color: var(--muted); font-size: 12px; margin-left: auto; white-space: nowrap; }
+.progress { display: grid; gap: 4px; font-size: 12px; color: var(--ink-2); }
+.bar { height: 4px; background: var(--rule-2); border-radius: 99px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--answered); border-radius: 99px; transition: width 300ms var(--ease); }
+.search { display: flex; align-items: center; gap: 8px; border: 1px solid var(--rule); border-radius: 8px; padding: 0 10px; background: var(--sunk); }
+.search input { flex: 1; min-width: 0; border: 0; background: none; font: inherit; color: var(--ink); padding: 7px 0; }
+.search input:focus { outline: none; }
+.search:focus-within { outline: 2px solid var(--focus); outline-offset: 1px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip-btn { border: 1px solid var(--rule); background: var(--panel); border-radius: 99px; padding: 3px 10px; font-size: 12px; cursor: pointer; color: var(--ink-2); transition: background-color 150ms var(--ease); }
+.chip-btn:hover { background: var(--hover); }
+.chip-btn[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+.list { flex: 1; overflow-y: auto; margin: 0; padding: 4px 0 24px; list-style: none; scroll-padding-block: 8px; }
+.list:focus-visible { outline-offset: -2px; }
+.sec { padding: 12px 16px 4px; font: 700 11px var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.row { display: grid; grid-template-columns: 4px 1fr auto; gap: 0 10px; padding: 9px 16px 9px 12px; border-bottom: 1px solid var(--rule-2); cursor: pointer; position: relative; }
+.row:hover { background: var(--hover); }
+.row[aria-selected="true"] { background: var(--select); }
+.heat { border-radius: 2px; background: var(--rule); grid-row: 1 / 3; }
+.heat.h2 { background: #E3A39B; } .heat.h3 { background: var(--stamp); }
+.row-top { display: flex; gap: 6px; align-items: baseline; min-width: 0; font-size: 12px; color: var(--muted); }
+.row-top b { color: var(--ink); font-weight: 600; font-size: 13px; }
+.row-top .who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-text { grid-column: 2 / 4; margin: 2px 0 0; color: var(--ink-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.row-age { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; align-self: start; }
+.age-late { color: var(--stamp); font-weight: 600; }
+.age-wait, .age-unsure { color: var(--waiting); }
+.new-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--focus); display: inline-block; margin-right: 2px; vertical-align: 1px; }
+.tag { display: inline-block; font: 600 11px var(--sans); padding: 0 6px; border-radius: 4px; background: var(--sunk); border: 1px solid var(--rule-2); color: var(--ink-2); white-space: nowrap; }
+.tag.complaint { color: var(--stamp); }
+.more { margin: 12px 16px; }
+
+/* reader */
+.reader { overflow-y: auto; padding: 28px 32px 48px; min-width: 0; }
+.reader-inner { max-width: 680px; margin: 0 auto; display: grid; gap: 16px; }
+.btn.back { display: none; }
+.slip { background: var(--slip); border-radius: 2px; padding: 16px 20px 18px; box-shadow: 0 1px 0 rgba(27,35,64,.06), 0 10px 24px -14px rgba(27,35,64,.45); }
+.slip-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 2px solid var(--ink); padding-bottom: 6px; margin-bottom: 12px; }
+.slip-title { font: 700 12px var(--sans); letter-spacing: .18em; text-transform: uppercase; }
+.fields { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0 0 14px; align-items: baseline; }
+.fields dt { font: 600 11px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); }
+.fields dd { margin: 0; font: 15px/1.4 var(--type); border-bottom: 1px solid var(--slip-line); overflow-wrap: anywhere; min-width: 0; }
+.fields dd a { text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.message { font: 400 17px/1.6 var(--sans); margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.stamp { display: inline-flex; flex-direction: column; align-items: center; transform: rotate(-6deg); font: 700 13px/1.1 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--stamp); border: 3px double currentColor; border-radius: 4px; padding: 5px 10px; flex: none; }
+.stamp small { font: 600 11px var(--sans); letter-spacing: .12em; }
+.stamp.replied { color: var(--answered); } .stamp.waiting { color: var(--waiting); } .stamp.unsure { color: var(--waiting); border-style: dashed; }
+.stamp.land { animation: land 180ms var(--ease) both; }
+@keyframes land { from { transform: rotate(-9deg) scale(1.12); opacity: 0; } to { transform: rotate(-6deg) scale(1); opacity: 1; } }
+.proof { font-size: 12px; color: var(--ink-2); margin: 12px 0 0; }
+.reply { padding: 10px 12px; border-left: 3px solid var(--answered); background: var(--panel); border-radius: 0 6px 6px 0; }
+.reply b { display: block; font-size: 12px; margin-bottom: 2px; }
+.card { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px; }
+.card h2 { font: 700 11px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.draft { font-size: 15px; line-height: 1.55; margin: 0 0 12px; white-space: pre-wrap; }
+.draft mark { background: var(--carbon); color: var(--carbon-ink); padding: 0 3px; border-radius: 3px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--rule); background: var(--panel); border-radius: 8px; padding: 7px 12px; cursor: pointer; text-decoration: none; font-weight: 500; transition: background-color 150ms var(--ease), transform 120ms var(--ease); }
+.btn:hover { background: var(--hover); }
+.btn:active { transform: scale(.97); }
+.btn.primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+.btn.primary:hover { filter: brightness(1.15); }
+.btn kbd { border-color: currentColor; color: inherit; background: transparent; opacity: .75; }
+.empty { display: grid; place-items: center; text-align: center; min-height: 60vh; color: var(--ink-2); }
+.empty h2 { font: 26px/1.2 var(--serif); color: var(--ink); margin: 0 0 8px; }
+.empty p { margin: 0 auto 6px; max-width: 42ch; }
+.context { font-size: 13px; color: var(--ink-2); }
+
+/* issues and brands views (in the list column) */
+.issue-row { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--rule-2); background: none; padding: 12px 16px; cursor: pointer; }
+.issue-row:hover { background: var(--hover); }
+.issue-row b { display: block; font-size: 14px; }
+.issue-row span { font-size: 12px; color: var(--muted); }
+.issue-row .num { display: none; }
+.issue-row .q { margin-top: 4px; font: 13px/1.45 var(--type); color: var(--ink-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tbl-wrap { overflow-x: auto; }
+table.brands { width: 100%; border-collapse: collapse; font-size: 13px; }
+.brands th, .brands td { padding: 8px 12px; border-bottom: 1px solid var(--rule-2); text-align: left; white-space: nowrap; }
+.brands th { font: 700 11px var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.brands td.n, .brands th.n { font-variant-numeric: tabular-nums; text-align: right; }
+.mini { display: inline-block; height: 6px; background: var(--stamp); border-radius: 3px; vertical-align: middle; margin-left: 6px; opacity: .7; }
+.brands button { border: 0; background: none; padding: 0; cursor: pointer; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.note { padding: 12px 16px; font-size: 12px; color: var(--muted); }
+
+/* toast */
+.toast { position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 12px); opacity: 0; background: var(--primary); color: var(--on-primary); padding: 9px 12px 9px 16px; border-radius: 10px; display: flex; gap: 12px; align-items: center; transition: opacity 180ms var(--ease), transform 180ms var(--ease); pointer-events: none; z-index: 10; box-shadow: 0 10px 30px -10px rgba(0,0,0,.4); max-width: calc(100vw - 32px); }
+.toast.on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.toast button { background: transparent; border: 1px solid currentColor; color: inherit; border-radius: 6px; padding: 3px 8px; cursor: pointer; font-weight: 600; }
+
+/* narrow screens: list first, the reader opens over it */
+@media (max-width: 1100px) { .app { grid-template-columns: 200px minmax(300px, 380px) minmax(0, 1fr); } .reader { padding: 24px; } }
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; height: auto; min-height: 100vh; }
+  .side { border-right: 0; border-bottom: 1px solid var(--rule); flex-direction: row; flex-wrap: wrap; gap: 12px; padding: 12px; overflow: visible; }
+  .side .mark, .side .nav-group { flex: 1 1 100%; }
+  .side .nav-group.views { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .side .nav-group.views h2 { display: none; }
+  .side .nav-group.views .nav-item { width: auto; }
+  .side .nav-group.views .nav-item .count { margin-left: 6px; }
+  .side .collapsible { display: none; }
+  .side.open .collapsible { display: block; }
+  .side-foot { display: none; }
+  .filters-toggle { display: inline-flex !important; }
+  .list-col { border-right: 0; }
+  .list { overflow: visible; }
+  .reader { display: none; padding: 16px; }
+  .app.reading .list-col, .app.reading .side { display: none; }
+  .app.reading .reader { display: block; }
+  .btn.back { display: inline-flex; justify-self: start; }
+}
+.filters-toggle { display: none; }
+/* Issues and Brands are overviews: they take the full width, there is no message to read */
+.app.wide { grid-template-columns: 232px minmax(0, 1fr); }
+.app.wide .reader { display: none; }
+.app.wide .list-col { border-right: 0; }
+.app.wide .list { max-width: 960px; }
+.app.wide .issue-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 24px; padding: 14px 24px; }
+.app.wide .issue-row .q { grid-column: 1 / 2; }
+.app.wide .issue-row .num { grid-row: 1 / 4; grid-column: 2; align-self: center; font: 26px/1 var(--serif); text-align: right; }
+.app.wide .issue-row .num small { display: block; font: 500 11px var(--sans); color: var(--muted); margin-top: 4px; }
+.app.wide .list-head { padding: 18px 24px 12px; }
+.siblings { display: grid; gap: 0; }
+.sib { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: baseline; text-align: left; border: 0; border-top: 1px solid var(--rule-2); background: none; padding: 8px 0; cursor: pointer; }
+.sib:hover .t { text-decoration: underline; text-underline-offset: 3px; }
+.sib .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.sib .p { font-size: 12px; color: var(--muted); white-space: nowrap; }
+@media (max-width: 860px) { .app.wide { grid-template-columns: 1fr; } .app.wide .issue-row .num { font-size: 20px; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
 </head>
 <body>
-  <aside>
-    <div class="mark"><a href="/">ReplyInPublic</a></div>
-    <button class="on" data-view="inbox">Inbox</button>
-    <button data-view="queue">Publish queue</button>
-    <button data-view="brands">Brands</button>
-    <button data-view="sources">Sources</button>
-    <button data-view="start">Start a workspace</button>
-    <div class="foot">Drafts stay in your documents. A person approves before send.</div>
-  </aside>
-  <main>
-    <div class="top">
-      <h1 id="title">Inbox</h1>
-      <select id="brand"></select>
-      <select id="kind">
-        <option value="">Complaints, questions, buyers, praise</option>
-        <option value="complaint">Complaints</option>
-        <option value="question">Questions</option>
-        <option value="purchase_intent">Purchase intent</option>
-        <option value="praise">Praise</option>
-      </select>
-    </div>
-    <div class="workspace">
-      <section id="view-inbox" class="split">
-        <div class="list" id="list"></div>
-        <div class="detail" id="detail"><p class="meta">Select a case.</p></div>
-      </section>
-      <section id="view-queue" class="panel hidden"></section>
-      <section id="view-brands" class="panel hidden"></section>
-      <section id="view-sources" class="panel hidden"></section>
-      <section id="view-start" class="panel hidden">
-        <div class="card">
-          <h2>Open a workspace</h2>
-          <p class="meta">We create the desk, attach the public support pages you send, and leave posting to a person until the brand account is connected.</p>
-          <form id="start-form">
-            <label>Company</label>
-            <input name="company_name" required>
-            <label>Your name</label>
-            <input name="contact_name" required>
-            <label>Work email</label>
-            <input name="contact_email" type="email" required>
-            <label>Brand already in the catalog</label>
-            <select name="brand_slug" id="start-brand"></select>
-            <label>Public warranty or FAQ URL</label>
-            <input name="kb_url" placeholder="https://">
-            <label>Platforms</label>
-            <input name="platforms" value="youtube, instagram, tiktok, x, reddit">
-            <div class="actions"><button class="act" type="submit">Request workspace</button></div>
-          </form>
-          <p id="start-note" class="meta"></p>
-        </div>
-      </section>
-    </div>
-  </main>
-  <script>
-    const params = new URLSearchParams(location.search);
-    if (params.get("token")) sessionStorage.setItem("rip_copilot_token", params.get("token"));
-    const token = () => sessionStorage.getItem("rip_copilot_token") || "";
-    let comments = [];
-    let selected = null;
-    let workspace = { brands: [], connections: [] };
-
-    function esc(s) { return String(s || ""); }
-
-    function show(view) {
-      document.querySelectorAll("aside button").forEach((b) => b.classList.toggle("on", b.dataset.view === view));
-      ["inbox", "queue", "brands", "sources", "start"].forEach((name) => {
-        document.getElementById("view-" + name).classList.toggle("hidden", name !== view);
-      });
-      document.getElementById("title").textContent = {
-        inbox: "Inbox", queue: "Publish queue", brands: "Brands", sources: "Sources", start: "Start a workspace"
-      }[view];
-      document.getElementById("brand").classList.toggle("hidden", view !== "inbox");
-      document.getElementById("kind").classList.toggle("hidden", view !== "inbox");
-      if (view === "queue") loadQueue();
-      if (view === "brands") renderBrands();
-      if (view === "sources") renderSources();
+<div class="app" id="app">
+  <aside class="side" id="side" aria-label="Views and filters"></aside>
+  <section class="list-col" aria-label="Messages">
+    <div class="list-head" id="listHead"></div>
+    <ul class="list" id="list" role="listbox" aria-label="Messages" tabindex="0"></ul>
+  </section>
+  <main class="reader" id="reader" tabindex="-1" aria-label="Open message"></main>
+</div>
+<div class="toast" id="toast" role="status"><span id="toastText"></span></div>
+<script>
+(function () {
+  const G = 48;
+  const PLAT = { instagram: "Instagram", youtube: "YouTube", x: "X", reddit: "Reddit", tiktok: "TikTok" };
+  const TYPE = { question: "Question", complaint: "Complaint", purchase_intent: "Wants to buy", praise: "Praise" };
+  const KEY = "replyinpublic.desk";
+  let mem = { done: {}, snooze: {}, notours: {} };
+  try { Object.assign(mem, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(mem)); } catch (e) {} };
+  const params = new URLSearchParams(location.search);
+  if (params.get("token")) sessionStorage.setItem("rip_copilot_token", params.get("token"));
+  const token = () => sessionStorage.getItem("rip_copilot_token") || "";
+  const $ = (tag, attrs, ...kids) => {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v == null || v === false) continue;
+      if (k === "class") el.className = v;
+      else if (k === "text") el.textContent = v;
+      else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? "" : v);
     }
-    document.querySelectorAll("aside button").forEach((b) => b.onclick = () => show(b.dataset.view));
+    for (const k of kids.flat()) if (k != null && k !== false) el.append(k.nodeType ? k : document.createTextNode(String(k)));
+    return el;
+  };
+  const put = (el, ...kids) => el.replaceChildren(...kids.flat(Infinity).filter(k => k != null && k !== false && k !== ""));
+  let messages = [];
+  let brands = [];
+  let S = { view: "inbox", brand: "", where: "", q: "" };
+  let sel = null;
+  const now = Date.now();
+  const snoozed = id => mem.snooze[id] && mem.snooze[id] > now;
+  const cleared = id => mem.done[id] || mem.notours[id] || snoozed(id);
+  const ageH = m => m.posted_at ? (now - Date.parse(m.posted_at)) / 36e5 : null;
+  const status = m => m.brand_replied === true ? "replied" : m.brand_replied == null ? "unsure" : (ageH(m) || 0) >= G ? "late" : "wait";
+  const hrs = h => h == null ? "time unknown" : h < 1 ? "under 1 hr" : h < 48 ? Math.floor(h) + " hrs" : Math.floor(h / 24) + " days";
+  const short = h => h == null ? "" : h < 1 ? "now" : h < 48 ? Math.floor(h) + "h" : Math.floor(h / 24) + "d";
+  const at = a => "@" + String(a || "unknown").replace(/^@+/, "");
+  const toast = text => { const t = document.getElementById("toast"); document.getElementById("toastText").textContent = text; t.classList.add("on"); setTimeout(() => t.classList.remove("on"), 2200); };
 
-    async function loadInbox() {
-      const query = new URLSearchParams({
-        brand: document.getElementById("brand").value,
-        unanswered: "1",
-        kind: document.getElementById("kind").value,
-      });
-      const data = await fetch("/api/preview?" + query).then((r) => r.json());
-      const brandSelect = document.getElementById("brand");
-      if (!brandSelect.options.length) {
-        const all = document.createElement("option");
-        all.value = "";
-        all.textContent = "Focus brands";
-        brandSelect.appendChild(all);
-        for (const brand of data.brands) {
-          const opt = document.createElement("option");
-          opt.value = brand.id;
-          opt.textContent = brand.name + " · " + brand.unanswered_14d;
-          brandSelect.appendChild(opt);
-        }
-      }
-      comments = data.comments || [];
-      const list = document.getElementById("list");
-      list.replaceChildren();
-      if (!comments.length) {
-        const empty = document.createElement("p");
-        empty.className = "meta";
-        empty.style.padding = "14px";
-        empty.textContent = "No open cases in this filter.";
-        list.appendChild(empty);
-      }
-      for (const comment of comments) {
-        const row = document.createElement("div");
-        row.className = "row" + (selected && selected.id === comment.id ? " on" : "");
-        const meta = document.createElement("div");
-        meta.className = "meta";
-        meta.textContent = [comment.case_id, comment.brand, comment.platform, comment.type || "unlabeled"].filter(Boolean).join(" · ");
-        const clip = document.createElement("div");
-        clip.className = "clip";
-        clip.textContent = comment.text;
-        row.append(meta, clip);
-        row.onclick = () => openCase(comment);
-        list.appendChild(row);
-      }
+  function pool() {
+    return messages.filter(m => (!S.brand || m.brand_id === S.brand) && (!S.where || m.surface === S.where)
+      && (!S.q || (m.text + " " + (m.author || "")).toLowerCase().includes(S.q.toLowerCase())));
+  }
+  function inView() {
+    const ms = pool();
+    if (S.view === "snoozed") return ms.filter(m => snoozed(m.id));
+    if (S.view === "done") return ms.filter(m => mem.done[m.id] || mem.notours[m.id]);
+    if (S.view === "replied") return ms.filter(m => m.brand_replied === true);
+    return ms.filter(m => m.brand_replied !== true && !cleared(m.id));
+  }
+  const GROUPS = [["late", "No brand reply after 48 hours"], ["wait", "Still inside 48 hours"], ["unsure", "Reply status not checked"]];
+
+  function side() {
+    const open = pool().filter(m => m.brand_replied !== true && !cleared(m.id)).length;
+    const views = [
+      ["inbox", "Inbox", open],
+      ["snoozed", "Snoozed", pool().filter(m => snoozed(m.id)).length],
+      ["done", "Cleared", pool().filter(m => mem.done[m.id] || mem.notours[m.id]).length],
+      ["replied", "Brand replied", pool().filter(m => m.brand_replied === true).length],
+      ["brands", "Brands", brands.length],
+    ];
+    const nav = (label, count, current, on) => $("button", { class: "nav-item", type: "button", "aria-current": current ? "true" : "false", onclick: on },
+      $("span", { class: "name", text: label }), count != null ? $("span", { class: "count", text: count }) : null);
+    const counts = {};
+    for (const m of messages) {
+      if (m.brand_replied === true || cleared(m.id)) continue;
+      if (S.where && m.surface !== S.where) continue;
+      counts[m.brand_id] = (counts[m.brand_id] || 0) + 1;
     }
+    const brandRows = brands.slice().sort((a, b) => (counts[b.id] || 0) - (counts[a.id] || 0));
+    const sideEl = document.getElementById("side");
+    put(sideEl,
+      $("div", { class: "mark" }, "ReplyInPublic", $("small", { text: "Customers your brands didn't answer" })),
+      $("nav", { class: "nav-group views" }, $("h2", { text: "Views" }),
+        views.map(([k, l, c]) => nav(l, c, S.view === k, () => { sel = null; S.view = k; render(); }))),
+      $("div", { class: "nav-group collapsible" }, $("h2", { text: "Where" }),
+        [["", "Everywhere"], ["own", "Brand's own posts"], ["other", "Other people's posts"]].map(([k, l]) => nav(l, null, S.where === k, () => { S.where = k; render(); }))),
+      $("div", { class: "nav-group collapsible" }, $("h2", { text: "Brand" }),
+        nav("Focus brands", null, !S.brand, () => { S.brand = ""; render(); }),
+        brandRows.filter(b => b.focus || counts[b.id]).map(b => nav(b.name, counts[b.id] || 0, S.brand === b.id, () => { S.brand = b.id; S.view = "inbox"; render(); }))),
+      $("div", { class: "side-foot" }, $("p", { text: "e clears, s snoozes until tomorrow, x marks not for us. Drafts come from the brand's public support pages." }))
+    );
+  }
 
-    function replyState(comment) {
-      if (comment.brand_replied === true) return ["Brand replied", "ok"];
-      if (comment.brand_replied === false) return ["No brand reply", "bad"];
-      return ["Reply not checked", ""];
+  function listHead() {
+    const titles = { inbox: "Inbox", snoozed: "Snoozed until tomorrow", done: "Cleared", replied: "Brand replied", brands: "Brands" };
+    const openNow = pool().filter(m => m.brand_replied !== true && !cleared(m.id)).length;
+    const clearedN = pool().filter(m => mem.done[m.id] || mem.notours[m.id]).length;
+    const work = S.view !== "brands";
+    const name = brands.find(b => b.id === S.brand);
+    put(document.getElementById("listHead"),
+      $("div", { class: "title-row" }, $("h1", { text: titles[S.view] }), $("span", { class: "sub", text: name ? name.name : "Focus brands" })),
+      work ? $("div", { class: "progress" }, $("span", {}, clearedN + " cleared, " + openNow + " still open"), $("div", { class: "bar" }, $("i", { style: "width:" + (openNow + clearedN ? Math.round(100 * clearedN / (openNow + clearedN)) : 0) + "%" }))) : null,
+      work ? $("label", { class: "search" }, $("input", { type: "search", placeholder: "Search words or names", value: S.q, oninput: e => { S.q = e.target.value; render(); } })) : null
+    );
+  }
+
+  function row(m) {
+    const st = status(m);
+    const ageClass = { late: "age-late", wait: "age-wait", unsure: "age-unsure", replied: "" }[st];
+    return $("li", { class: "row", "aria-selected": String(sel === m.id), onclick: () => { sel = m.id; document.getElementById("app").classList.add("reading"); render(); } },
+      $("span", { class: "heat " + (st === "late" ? "h3" : st === "wait" ? "h2" : "") }),
+      $("div", { class: "row-top" }, $("b", { text: m.brand }), $("span", { class: "who", text: at(m.author) + " on " + (PLAT[m.platform] || m.platform) })),
+      $("span", { class: "row-age " + ageClass, text: short(ageH(m)) }),
+      $("p", { class: "row-text" }, $("span", { class: "tag" + (m.type === "complaint" ? " complaint" : ""), text: TYPE[m.type] || "Comment" }), " ", m.text)
+    );
+  }
+
+  function list() {
+    const L = document.getElementById("list");
+    if (S.view === "brands") {
+      const max = Math.max(1, ...brands.map(b => b.unanswered_14d || 0));
+      return put(L, $("li", {}, $("div", { class: "tbl-wrap" }, $("table", { class: "brands" },
+        $("thead", {}, $("tr", {}, $("th", { text: "Brand" }), $("th", { class: "n", text: "Open, 14 days" }), $("th", { text: "Support pages" }))),
+        $("tbody", {}, brands.map(b => $("tr", {},
+          $("td", {}, $("button", { type: "button", onclick: () => { S.brand = b.id; S.view = "inbox"; sel = null; render(); }, text: b.name })),
+          $("td", { class: "n" }, String(b.unanswered_14d || 0), $("span", { class: "mini", style: "width:" + Math.round(40 * (b.unanswered_14d || 0) / max) + "px" })),
+          $("td", { text: b.kb_chunks ? b.kb_chunks + " passages" : "None loaded" })
+        ))))),
+        $("li", { class: "note", text: "Counts only. A public reply rate stays off until the reply was checked." }));
     }
-
-    function openCase(comment) {
-      selected = comment;
-      loadInbox();
-      const pane = document.getElementById("detail");
-      pane.replaceChildren();
-      const [state, cls] = replyState(comment);
-      const meta = document.createElement("div");
-      meta.className = "meta";
-      meta.innerHTML = "";
-      const pills = document.createElement("div");
-      for (const [text, klass] of [[comment.case_id, ""], [state, cls], [comment.platform, ""], [comment.type || "unlabeled", ""]]) {
-        if (!text) continue;
-        const pill = document.createElement("span");
-        pill.className = "pill" + (klass ? " " + klass : "");
-        pill.textContent = text;
-        pills.appendChild(pill);
+    const ms = inView();
+    const items = [];
+    let last = null;
+    for (const m of ms) {
+      const g = S.view === "inbox" ? status(m) : null;
+      if (g && g !== last) {
+        const label = GROUPS.find(x => x[0] === g);
+        if (label) items.push($("li", { class: "sec", text: label[1] + " (" + ms.filter(x => status(x) === g).length + ")" }));
+        last = g;
       }
-      const body = document.createElement("p");
-      body.textContent = comment.text;
-      const link = document.createElement("p");
-      const a = document.createElement("a");
-      a.className = "src";
-      a.href = comment.url;
-      a.target = "_blank";
-      a.rel = "noreferrer";
-      a.textContent = "Open the original post";
-      link.appendChild(a);
-      const who = document.createElement("p");
-      who.className = "meta";
-      who.textContent = (comment.author || "Unknown author") + " · " + (comment.posted_at || "").replace("T", " ").slice(0, 16)
-        + (comment.reply_due_at ? " · due " + comment.reply_due_at.replace("T", " ").slice(0, 16) : "")
-        + (comment.support_contact ? " · " + comment.support_contact : "");
-      const draftBtn = document.createElement("button");
-      draftBtn.className = "act";
-      draftBtn.textContent = "Draft from support pages";
-      draftBtn.onclick = () => draft(comment);
-      pane.append(pills, who, body, link, draftBtn);
-      const box = document.createElement("div");
-      box.id = "draft-box";
-      pane.appendChild(box);
-      if (comment.draft_text) {
-        box.appendChild(draftEditor(comment.draft_text, comment));
-      }
+      items.push(row(m));
     }
+    if (!items.length) items.push($("li", { class: "note", text: "Nothing in this view." }));
+    put(L, ...items);
+    document.getElementById("app").classList.toggle("wide", S.view === "brands");
+  }
 
-    function draftEditor(text, comment) {
-      const wrap = document.createElement("div");
-      const label = document.createElement("p");
-      label.className = "meta";
-      label.textContent = comment.draft_status ? "Draft status: " + comment.draft_status : "Suggested reply";
-      const area = document.createElement("textarea");
-      area.value = text;
-      const actions = document.createElement("div");
-      actions.className = "actions";
-      for (const [name, action] of [["Approve", "approve"], ["Save edit", "edit"], ["Reject", "reject"]]) {
-        const btn = document.createElement("button");
-        btn.className = "act" + (action === "approve" ? "" : " line");
-        btn.textContent = name;
-        btn.onclick = () => saveDraft(comment, action, area.value);
-        actions.appendChild(btn);
-      }
-      wrap.append(label, area, actions);
-      return wrap;
+  function reader() {
+    const R = document.getElementById("reader");
+    if (S.view === "brands") return put(R);
+    const m = messages.find(x => x.id === sel) || inView()[0];
+    if (m && sel == null && window.innerWidth > 860) sel = m.id;
+    const current = messages.find(x => x.id === sel);
+    if (!current) return put(R, $("div", { class: "reader-inner" }, $("div", { class: "empty" }, $("h2", { text: S.view === "inbox" ? "Inbox clear." : "Nothing here." }))));
+    const st = status(current);
+    const stamp = st === "replied" ? $("span", { class: "stamp replied" }, "Replied", $("small", { text: "by the brand" }))
+      : st === "unsure" ? $("span", { class: "stamp unsure" }, "Not checked", $("small", { text: "reply status" }))
+      : st === "wait" ? $("span", { class: "stamp waiting" }, "Waiting", $("small", { text: hrs(ageH(current)) }))
+      : $("span", { class: "stamp" }, "No reply", $("small", { text: hrs(ageH(current)) }));
+    const where = (PLAT[current.platform] || current.platform) + (current.surface === "own" ? ", the brand's own post" : ", someone else's post");
+    const box = $("div", { id: "draftBox" });
+    if (current.draft_text) box.append(draftCard(current, current.draft_text));
+    put(R, $("div", { class: "reader-inner" },
+      $("button", { class: "btn back", type: "button", onclick: () => document.getElementById("app").classList.remove("reading") }, "Back to the list"),
+      $("article", { class: "slip" },
+        $("div", { class: "slip-head" }, $("h2", { class: "slip-title", style: "margin:0", text: "While you were out" }), stamp),
+        $("dl", { class: "fields" },
+          $("dt", { text: "To" }), $("dd", { text: current.brand }),
+          $("dt", { text: "From" }), $("dd", { text: at(current.author) }),
+          $("dt", { text: "On" }), $("dd", {}, current.url ? $("a", { href: current.url, target: "_blank", rel: "noopener", text: where }) : where),
+          $("dt", { text: "When" }), $("dd", { text: hrs(ageH(current)) + " ago" }),
+          $("dt", { text: "Case" }), $("dd", { text: current.case_id || "" }),
+          $("dt", { text: "About" }), $("dd", { text: TYPE[current.type] || "Comment" })),
+        $("p", { class: "message", text: current.text }),
+        $("p", { class: "proof", text: current.brand_replied == null ? "Reply status not checked." : current.brand_replied ? "The brand already replied." : "No brand reply in the replies that were read." })),
+      current.reply_text ? $("div", { class: "reply" }, $("b", { text: current.brand + " replied" }), current.reply_text) : null,
+      current.brand_replied !== true ? $("section", { class: "card" },
+        $("h2", { text: "Reply" }),
+        $("p", { class: "context", text: current.support_contact || "Support contact not set." }),
+        $("div", { class: "actions" },
+          $("button", { class: "btn primary", type: "button", onclick: () => draft(current) }, "Draft from support pages"),
+          current.url ? $("a", { class: "btn", href: current.url, target: "_blank", rel: "noopener" }, "Open the comment") : null),
+        box) : null,
+      current.brand_replied !== true ? $("div", { class: "actions" },
+        cleared(current.id) ? $("button", { class: "btn", type: "button", onclick: () => restore(current.id) }, "Move back to the inbox")
+          : [$("button", { class: "btn", type: "button", onclick: () => act("done", current.id) }, "Mark handled"),
+             $("button", { class: "btn", type: "button", onclick: () => act("snooze", current.id) }, "Snooze until tomorrow"),
+             $("button", { class: "btn", type: "button", onclick: () => act("notours", current.id) }, "Not for us")]) : null
+    ));
+  }
+
+  function draftCard(m, text) {
+    const area = $("textarea", { class: "draft", style: "width:100%;min-height:90px;border:1px solid var(--rule);border-radius:8px;padding:8px" });
+    area.value = text;
+    return $("div", {},
+      area,
+      $("div", { class: "actions", style: "margin-top:8px" },
+        $("button", { class: "btn primary", type: "button", onclick: () => saveDraft(m, "approve", area.value) }, "Approve"),
+        $("button", { class: "btn", type: "button", onclick: () => saveDraft(m, "edit", area.value) }, "Save edit"),
+        $("button", { class: "btn", type: "button", onclick: () => navigator.clipboard.writeText(area.value).then(() => toast("Draft copied.")) }, "Copy draft"))
+    );
+  }
+
+  async function draft(m) {
+    const box = document.getElementById("draftBox");
+    box.textContent = "Reading the support pages.";
+    const q = new URLSearchParams({ mention_id: m.id, posted_at: m.posted_at });
+    if (token()) q.set("token", token());
+    const data = await fetch("/api/copilot?" + q).then(r => r.json());
+    box.replaceChildren(draftCard(m, data.reply || ""));
+    for (const passage of data.passages || []) {
+      box.append($("p", { class: "proof" }, (passage.text || "").slice(0, 280), " ", passage.source_url ? $("a", { href: passage.source_url, target: "_blank", rel: "noopener", text: "Source" }) : ""));
     }
+  }
 
-    async function draft(comment) {
-      const box = document.getElementById("draft-box");
-      box.textContent = "Reading the support pages.";
-      const query = new URLSearchParams({ mention_id: comment.id, posted_at: comment.posted_at });
-      if (token()) query.set("token", token());
-      const data = await fetch("/api/copilot?" + query).then((r) => r.json());
-      box.replaceChildren();
-      box.appendChild(draftEditor(data.reply || "", comment));
-      const passages = document.createElement("div");
-      passages.className = "passages";
-      for (const passage of data.passages || []) {
-        const block = document.createElement("article");
-        const p = document.createElement("p");
-        p.textContent = (passage.text || "").slice(0, 420);
-        const a = document.createElement("a");
-        a.className = "src";
-        a.href = passage.source_url;
-        a.target = "_blank";
-        a.rel = "noreferrer";
-        a.textContent = passage.source_url;
-        block.append(p, a);
-        passages.appendChild(block);
-      }
-      box.appendChild(passages);
-    }
+  async function saveDraft(m, action, text) {
+    const q = new URLSearchParams();
+    if (token()) q.set("token", token());
+    const res = await fetch("/api/draft?" + q, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mention_id: m.id, posted_at: m.posted_at, action, final_text: text }) });
+    toast(res.ok ? "Saved to the publish queue." : "Could not save. Open this desk with the copilot token.");
+  }
 
-    async function saveDraft(comment, action, text) {
-      const query = new URLSearchParams();
-      if (token()) query.set("token", token());
-      const response = await fetch("/api/draft?" + query, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mention_id: comment.id, posted_at: comment.posted_at, action, final_text: text }),
-      });
-      const note = document.createElement("p");
-      note.className = "meta";
-      note.textContent = response.ok ? "Saved. Approved drafts appear in the publish queue." : "Could not save this draft. Open the workspace with the copilot token.";
-      document.getElementById("draft-box").appendChild(note);
-      if (response.ok && action !== "reject") show("queue");
-    }
+  function act(kind, id) {
+    if (kind === "done") mem.done[id] = Date.now();
+    if (kind === "notours") mem.notours[id] = Date.now();
+    if (kind === "snooze") { const t = new Date(); t.setDate(t.getDate() + 1); t.setHours(8, 0, 0, 0); mem.snooze[id] = t.getTime(); }
+    save();
+    sel = null;
+    toast({ done: "Marked handled.", notours: "Marked not for us.", snooze: "Snoozed until 8 AM tomorrow." }[kind]);
+    render();
+  }
+  function restore(id) { delete mem.done[id]; delete mem.notours[id]; delete mem.snooze[id]; save(); toast("Moved back to the inbox."); render(); }
 
-    async function loadQueue() {
-      const data = await fetch("/api/console/summary").then((r) => r.json());
-      const pane = document.getElementById("view-queue");
-      pane.replaceChildren();
-      const intro = document.createElement("p");
-      intro.className = "meta";
-      intro.textContent = "Approved replies wait here until a person sends them. Account connection for automatic posting is not on yet.";
-      pane.appendChild(intro);
-      const table = document.createElement("table");
-      table.innerHTML = "<thead><tr><th>Case</th><th>Channel</th><th>Reply</th><th>Status</th><th></th></tr></thead>";
-      const body = document.createElement("tbody");
-      for (const row of data.publish_queue || []) {
-        const tr = document.createElement("tr");
-        const td = document.createElement("td");
-        const copy = document.createElement("button");
-        copy.className = "act line";
-        copy.textContent = "Copy";
-        copy.onclick = () => navigator.clipboard.writeText(row.body);
-        const mark = document.createElement("button");
-        mark.className = "act line";
-        mark.textContent = "Mark sent";
-        mark.onclick = async () => { await fetch("/api/publish/" + row.id + "/demo", { method: "POST" }); loadQueue(); };
-        td.append(copy, document.createTextNode(" "), mark);
-        for (const value of [row.case_id || row.id, row.channel, (row.body || "").slice(0, 180), row.status]) {
-          const cell = document.createElement("td");
-          cell.textContent = value;
-          tr.appendChild(cell);
-        }
-        tr.appendChild(td);
-        body.appendChild(tr);
-      }
-      table.appendChild(body);
-      pane.appendChild(table);
-    }
+  function render() { side(); listHead(); list(); reader(); }
 
-    function renderBrands() {
-      const pane = document.getElementById("view-brands");
-      pane.replaceChildren();
-      const table = document.createElement("table");
-      table.innerHTML = "<thead><tr><th>Brand</th><th>Support contact</th><th>Reply window</th><th>Support pages</th></tr></thead>";
-      const body = document.createElement("tbody");
-      for (const brand of workspace.brands) {
-        const tr = document.createElement("tr");
-        const pages = brand.kb_chunks ? brand.kb_chunks + " passages" : "None loaded";
-        for (const value of [brand.name, brand.support_contact || "Not set", brand.reply_sla_hours + " hours", pages]) {
-          const cell = document.createElement("td");
-          cell.textContent = value;
-          tr.appendChild(cell);
-        }
-        body.appendChild(tr);
-      }
-      table.appendChild(body);
-      pane.appendChild(table);
-    }
-
-    function renderSources() {
-      const pane = document.getElementById("view-sources");
-      pane.replaceChildren();
-      const note = document.createElement("p");
-      note.className = "meta";
-      note.textContent = "Listening is on for the catalog. Posting stays manual until each brand account is connected.";
-      pane.appendChild(note);
-      const table = document.createElement("table");
-      table.innerHTML = "<thead><tr><th>Brand</th><th>Platform</th><th>Status</th><th>Note</th></tr></thead>";
-      const body = document.createElement("tbody");
-      for (const row of workspace.connections) {
-        const tr = document.createElement("tr");
-        for (const value of [row.brand, row.platform, row.status, row.note || ""]) {
-          const cell = document.createElement("td");
-          cell.textContent = value;
-          tr.appendChild(cell);
-        }
-        body.appendChild(tr);
-      }
-      table.appendChild(body);
-      pane.appendChild(table);
-      const ingest = document.createElement("div");
-      ingest.className = "card";
-      ingest.style.marginTop = "16px";
-      ingest.innerHTML = "<h2>Add posts</h2><p class='meta'>Paste JSON lines from a research pass. Duplicates are dropped.</p>";
-      const area = document.createElement("textarea");
-      area.placeholder = '{"brand_id":"ninja","platform":"x","text":"...","url":"https://x.com/...","posted_at":"2026-11-14T12:00:00Z"}';
-      const btn = document.createElement("button");
-      btn.className = "act";
-      btn.textContent = "Add to inbox";
-      const status = document.createElement("p");
-      status.className = "meta";
-      btn.onclick = async () => {
-        const res = await fetch("/api/ingest?token=" + encodeURIComponent(token()), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ raw: area.value }),
-        });
-        const data = await res.json();
-        status.textContent = res.ok ? "Added " + data.added + ". Duplicates " + data.duplicates + "." : (data.detail || "Could not add posts");
-      };
-      ingest.append(area, document.createElement("br"), btn, status);
-      pane.appendChild(ingest);
-    }
-
-    document.getElementById("brand").onchange = loadInbox;
-    document.getElementById("kind").onchange = loadInbox;
-    document.getElementById("start-form").onsubmit = async (event) => {
-      event.preventDefault();
-      const payload = Object.fromEntries(new FormData(event.target).entries());
-      payload.platforms = String(payload.platforms || "").split(/[,\s]+/).filter(Boolean);
-      const res = await fetch("/api/onboard", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      const data = await res.json();
-      document.getElementById("start-note").textContent = res.ok ? "Request " + data.id + " is in. We will use " + payload.contact_email + "." : (data.detail || "Could not save");
-    };
-
-    async function boot() {
-      workspace = await fetch("/api/workspace").then((r) => r.json());
-      const select = document.getElementById("start-brand");
-      const blank = document.createElement("option");
-      blank.value = "";
-      blank.textContent = "New brand";
-      select.appendChild(blank);
-      for (const brand of workspace.brands || []) {
-        const opt = document.createElement("option");
-        opt.value = brand.id;
-        opt.textContent = brand.name;
-        select.appendChild(opt);
-      }
-      await loadInbox();
-      if (location.hash === "#start") show("start");
-      setInterval(loadInbox, 20000);
-    }
-    boot();
-  </script>
+  async function boot() {
+    const [preview, workspace] = await Promise.all([
+      fetch("/api/preview?unanswered=0").then(r => r.json()),
+      fetch("/api/workspace").then(r => r.json()),
+    ]);
+    const kb = {};
+    for (const b of workspace.brands || []) kb[b.id] = b.kb_chunks;
+    brands = (preview.brands || []).map(b => Object.assign(b, { kb_chunks: kb[b.id] || 0 }));
+    messages = preview.comments || [];
+    render();
+  }
+  boot();
+})();
+</script>
 </body>
 </html>
