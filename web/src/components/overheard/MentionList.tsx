@@ -104,7 +104,7 @@ export const MentionList = forwardRef<HTMLInputElement, Props>(function MentionL
                       {m.surface}
                     </span>
                   </div>
-                  <p className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-foreground">{m.text}</p>
+                  <p className="mt-1 line-clamp-2 text-[13px] leading-snug">{m.text}</p>
                   <div className="mt-1 flex items-center gap-2">
                     <span className="font-mono text-[11px] text-muted-foreground">
                       {rel(m.posted_at)}
