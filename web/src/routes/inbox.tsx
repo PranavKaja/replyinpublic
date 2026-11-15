@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { dataQuery, useSetStatus, SignedOut } from "@/lib/overheard/data";
+import { dataQuery, useSetStatus, SignedOut, useSetStatusMany } from "@/lib/overheard/data";
 import {
   effectiveStatus,
   filterMentions,
@@ -242,6 +242,61 @@ function App() {
     [items, set, setStatus],
   );
 
+  const setMany = useSetStatusMany();
+  // Everything in the open message's issue that sits in the same place as it does right now.
+  const issueGroup = useMemo(() => {
+    if (!selected?.theme_id) return [];
+    const here = effectiveStatus(selected, now);
+    return data.mentions.filter(
+      (m) => m.theme_id === selected.theme_id && effectiveStatus(m, now) === here,
+    );
+  }, [data.mentions, selected, now]);
+  const moveIssue = useCallback(
+    (status: Status) => {
+      const group = issueGroup.filter((m) => m.status !== status);
+      if (!group.length) return;
+      const moved = new Set(group.map((m) => m.id));
+      const before = group.map((m) => ({
+        id: m.id,
+        status: m.status as Status,
+        snoozed_until: m.snoozed_until,
+        is_feedback: m.is_feedback ?? false,
+      }));
+      const snoozed_until =
+        status === "snoozed" ? new Date(Date.now() + 86_400_000).toISOString() : null;
+      const keep = selected?.id ?? "";
+      const next = items.find((x) => !moved.has(x.id));
+      setMany.mutate(
+        group.map((m) => ({
+          id: m.id,
+          status,
+          snoozed_until,
+          ...(status === "feedback" ? { is_feedback: true } : {}),
+        })),
+      );
+      set({ id: next?.id ?? "" });
+      const undo = () => {
+        setMany.mutate(before);
+        set({ id: keep });
+        lastUndo.current = null;
+      };
+      lastUndo.current = undo;
+      const where: Record<Status, string> = {
+        handled: "marked handled",
+        parked: "parked for reply",
+        snoozed: "snoozed for 24h",
+        dismissed: "marked not ours",
+        feedback: "moved to feedback for brand",
+        inbox: "moved to inbox",
+      };
+      toast(`${group.length} ${group.length === 1 ? "message" : "messages"} ${where[status]}`, {
+        duration: 10000,
+        action: { label: "Undo", onClick: undo },
+      });
+    },
+    [issueGroup, items, selected, set, setMany],
+  );
+
   const act = (st: Status) => selected && change(selected, st);
   const isList = f.view in TITLES;
 
@@ -312,6 +367,8 @@ function App() {
       }
       act={act}
       onSelect={openSibling}
+      moveIssue={moveIssue}
+      issueCount={issueGroup.length}
     />
   );
   const openMention = (id: string) => {
@@ -402,6 +459,8 @@ function App() {
                       setMobileReader(false);
                     }}
                     onSelect={openSibling}
+                    moveIssue={moveIssue}
+                    issueCount={issueGroup.length}
                     onBack={() => setMobileReader(false)}
                   />
                 </div>

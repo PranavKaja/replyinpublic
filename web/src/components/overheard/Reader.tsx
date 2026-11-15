@@ -18,9 +18,19 @@ interface Props {
   act: (s: Status) => void;
   onSelect: (id: string) => void;
   onBack?: (() => void) | undefined;
+  moveIssue?: ((status: Status) => void) | undefined;
+  issueCount?: number | undefined;
 }
 
-export function Reader({ m, brand, theme, siblings, act, onSelect, onBack }: Props) {
+const ISSUE_MOVES: [Status, string][] = [
+  ["feedback", "Feedback"],
+  ["parked", "Parked"],
+  ["snoozed", "Snoozed"],
+  ["handled", "Handled"],
+  ["inbox", "Inbox"],
+];
+
+export function Reader({ m, brand, theme, siblings, act, onSelect, onBack, moveIssue, issueCount = 0 }: Props) {
   if (!m)
     return (
       <div className="flex h-full items-center justify-center font-serif text-xl font-semibold tracking-tight text-muted-foreground">
@@ -111,6 +121,20 @@ export function Reader({ m, brand, theme, siblings, act, onSelect, onBack }: Pro
                   {siblings.length + 1} messages
                 </span>
               </div>
+              {moveIssue && issueCount > 1 && (
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="text-muted-foreground">Move all {issueCount} here to</span>
+                  {ISSUE_MOVES.filter(([st]) => st !== m.status).map(([st, label]) => (
+                    <button
+                      key={st}
+                      onClick={() => moveIssue(st)}
+                      className="rounded-sm border px-2 py-1 font-medium hover:bg-accent/60"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
               <ul className="max-h-64 divide-y overflow-y-auto overscroll-contain rounded-sm border">
                 {siblings.map((s) => (
                   <li key={s.id}>

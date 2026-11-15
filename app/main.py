@@ -293,6 +293,51 @@ async def desk_status(request: Request) -> dict:
     return {"ok": True}
 
 
+@app.post("/api/desk/status-batch")
+async def desk_status_batch(request: Request) -> dict:
+    """Move many messages in one go. Each change carries its own status, so undo can restore a mix."""
+    me = _session(request)
+    body = await request.json()
+    changes = body.get("changes")
+    if not isinstance(changes, list) or not 0 < len(changes) <= 1000:
+        raise HTTPException(status_code=400, detail="bad changes")
+    rows = []
+    for change in changes:
+        if not isinstance(change, dict):
+            raise HTTPException(status_code=400, detail="bad change")
+        status = change.get("status")
+        if status not in DESK_STATUSES:
+            raise HTTPException(status_code=400, detail="bad status")
+        snoozed_until = change.get("snoozed_until") if status == "snoozed" else None
+        rows.append((_desk_id(change), status, snoozed_until, change.get("is_feedback")))
+    ids = [row[0] for row in rows]
+    with _lock:
+        conn = db()
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT count(DISTINCT id) FROM mentions WHERE id = ANY(%s) AND brand_id = ANY(%s)",
+                (ids, me["brands"]),
+            )
+            if cur.fetchone()[0] != len(set(ids)):
+                conn.rollback()
+                raise HTTPException(status_code=404, detail="not found")
+            for mention_id, status, snoozed_until, is_feedback in rows:
+                cur.execute(
+                    """
+                    INSERT INTO mention_state (mention_id, status, snoozed_until, status_changed_at, is_feedback)
+                    VALUES (%s, %s, %s, now(), COALESCE(%s, false))
+                    ON CONFLICT (mention_id) DO UPDATE SET
+                      status = EXCLUDED.status,
+                      snoozed_until = EXCLUDED.snoozed_until,
+                      status_changed_at = now(),
+                      is_feedback = COALESCE(%s, mention_state.is_feedback)
+                    """,
+                    (mention_id, status, snoozed_until, is_feedback, is_feedback),
+                )
+        conn.commit()
+    return {"ok": True, "moved": len(rows)}
+
+
 @app.post("/api/desk/draft")
 async def desk_draft(request: Request) -> dict:
     me = _session(request)

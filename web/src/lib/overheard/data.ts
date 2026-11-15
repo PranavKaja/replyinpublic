@@ -55,6 +55,33 @@ export function useSetStatus() {
   });
 }
 
+/** Move many messages at once. The list updates straight away and one request saves it. */
+export function useSetStatusMany() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (changes: StatusChange[]) => {
+      await post("/api/desk/status-batch", { changes });
+    },
+    onMutate: async (changes) => {
+      await qc.cancelQueries({ queryKey: dataQuery.queryKey });
+      const byId = new Map(changes.map((c) => [c.id, c]));
+      const at = new Date().toISOString();
+      qc.setQueryData<Data>(dataQuery.queryKey, (d) =>
+        d && {
+          ...d,
+          mentions: d.mentions.map((m) => {
+            const c = byId.get(m.id);
+            return c
+              ? { ...m, status: c.status, snoozed_until: c.snoozed_until ?? null, status_changed_at: at, ...(c.is_feedback !== undefined ? { is_feedback: c.is_feedback } : {}) }
+              : m;
+          }),
+        },
+      );
+    },
+    onError: () => qc.invalidateQueries({ queryKey: dataQuery.queryKey }),
+  });
+}
+
 export function useSaveDraft() {
   const qc = useQueryClient();
   return useMutation({
