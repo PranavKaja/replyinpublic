@@ -26,6 +26,22 @@ MIGRATIONS = [
       WHERE case_id IS NOT NULL
     """,
     """
+    CREATE TABLE IF NOT EXISTS themes (
+      id text PRIMARY KEY,
+      brand_id text NOT NULL,
+      name text NOT NULL,
+      summary text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS mention_themes (
+      mention_id bigint PRIMARY KEY,
+      theme_id text,
+      placed_at timestamptz NOT NULL DEFAULT now()
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS mention_state (
       mention_id bigint PRIMARY KEY,
       status text NOT NULL DEFAULT 'inbox',

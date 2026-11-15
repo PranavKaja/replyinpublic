@@ -95,7 +95,8 @@ def desk_data() -> dict:
                 SELECT m.id, m.brand_id, m.platform, m.surface, m.url, m.parent_url, v.title,
                        m.author, m.text, m.posted_at, m.brand_replied, m.reply_text, m.proof,
                        l.type, l.urgency, l.is_buyer,
-                       s.status, s.snoozed_until, s.status_changed_at, s.is_feedback, s.draft
+                       s.status, s.snoozed_until, s.status_changed_at, s.is_feedback, s.draft,
+                       t.theme_id
                 FROM mentions m
                 JOIN LATERAL (
                   SELECT type, urgency, is_buyer FROM labels
@@ -106,6 +107,7 @@ def desk_data() -> dict:
                   ON m.platform = 'youtube' AND v.brand_id = m.brand_id
                  AND v.video_id = split_part(split_part(m.parent_url, 'v=', 2), '&', 1)
                 LEFT JOIN mention_state s ON s.mention_id = m.id
+                LEFT JOIN mention_themes t ON t.mention_id = m.id
                 WHERE l.type IN ('complaint', 'question', 'purchase_intent')
                   AND m.brand_id = ANY(%s)
                 ORDER BY m.posted_at DESC
@@ -114,12 +116,20 @@ def desk_data() -> dict:
                 (focus,),
             )
             rows = cur.fetchall()
+            cur.execute(
+                "SELECT id, brand_id, name, summary FROM themes WHERE brand_id = ANY(%s) ORDER BY id",
+                (focus,),
+            )
+            themes = [
+                {"id": tid, "brand_id": bid, "name": name, "summary": summary}
+                for tid, bid, name, summary in cur.fetchall()
+            ]
         conn.commit()
     now = datetime.now().astimezone()
     mentions = []
     for (mid, brand_id, platform, surface, url, parent_url, title, author, text, posted_at,
          replied, reply_text, proof, kind, urgency, is_buyer,
-         status, snoozed_until, changed_at, is_feedback, draft) in rows:
+         status, snoozed_until, changed_at, is_feedback, draft, theme_id) in rows:
         waited = max(0.0, (now - posted_at).total_seconds() / 3600)
         priority = _URGENCY_POINTS.get(urgency or "low", 20) + (15 if is_buyer else 0) + min(waited / 24, 10)
         mentions.append({
@@ -143,14 +153,14 @@ def desk_data() -> dict:
             "urgency": urgency or "low",
             "needs_response": replied is not True,
             "priority": round(priority, 1),
-            "theme_id": None,
+            "theme_id": theme_id,
             "draft": draft,
             "status": status or ("handled" if replied else "inbox"),
             "snoozed_until": snoozed_until.isoformat() if snoozed_until else None,
             "status_changed_at": changed_at.isoformat() if changed_at else None,
             "is_feedback": bool(is_feedback),
         })
-    return {"brands": brands, "themes": [], "mentions": mentions}
+    return {"brands": brands, "themes": themes, "mentions": mentions}
 
 
 def _desk_id(body: dict) -> int:
