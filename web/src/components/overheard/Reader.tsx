@@ -53,62 +53,69 @@ export function Reader({ m, brand, theme, siblings, act, onSelect, onBack, moveI
           </button>
         )}
         <div className="mx-auto max-w-[640px] space-y-6">
-          <div className="relative rounded-xl border bg-slip p-5 shadow-[0_1px_2px_color-mix(in_oklab,var(--foreground)_8%,transparent)]">
-            <div className="font-serif text-2xl font-semibold tracking-tight">Thread context</div>
-            <div className="mt-3 space-y-1.5 text-sm leading-6">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-semibold">{brand?.name}</span>
-                <PlatformIcon p={m.platform} />
-                <span className="text-muted-foreground">{where}</span>
-              </div>
-              <div className="flex flex-wrap items-center gap-3 font-mono text-xs text-muted-foreground">
-                <span className="font-sans text-sm text-foreground">@{m.author}</span>
-                <span>
-                  {new Date(m.posted_at).toLocaleString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                    timeZone: "UTC",
-                  })}{" "}
-                  UTC
-                </span>
-                <span>{rel(m.posted_at)}</span>
+          {/* Where it was said: small and quiet, so the message below is the first thing read. */}
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="font-semibold">{brand?.name}</span>
+              <PlatformIcon p={m.platform} />
+              <span className="text-muted-foreground">{where}</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] text-muted-foreground">
+              <span>
+                {new Date(m.posted_at).toLocaleString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                  timeZone: "UTC",
+                })}{" "}
+                UTC
+              </span>
+              <span>{rel(m.posted_at)}</span>
+              {m.like_count > 0 && (
                 <span className="flex items-center gap-1">
                   <Heart className="size-3" />
                   {m.like_count}
                 </span>
-                {m.view_count > 0 && (
+              )}
+              {m.view_count > 0 && (
                 <span className="flex items-center gap-1">
                   <Eye className="size-3" />
                   {compact(m.view_count)} views on thread
                 </span>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <TypeBadge type={m.type} />
-                <ReplyStatus m={m} grace={brand?.grace_hours ?? 24} />
-                <span
-                  className={cn(
-                    "text-xs",
-                    m.proof === "api" || m.proof === "human" ? "text-replied" : "text-amber",
-                  )}
-                >
-                  {m.proof === "api" ? "Verified" : m.proof === "human" ? "Verified" : "Unverified"}
-                </span>
-                <a
-                  href={m.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="ml-auto text-sm text-primary underline underline-offset-2"
-                >
-                  Open original
-                </a>
-              </div>
+              )}
             </div>
           </div>
 
-          <p className="text-lg leading-relaxed">{m.text}</p>
+          {/* The customer's own words: the one boxed, large block on the page. */}
+          <figure className="overflow-hidden rounded-lg border border-l-4 border-l-stamp bg-slip shadow-[0_1px_2px_color-mix(in_oklab,var(--foreground)_8%,transparent)]">
+            <figcaption className="flex flex-wrap items-center gap-2 border-b bg-muted/40 px-4 py-2">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Customer message
+              </span>
+              <span className="text-sm font-medium">@{m.author}</span>
+              <span className="ml-auto flex items-center gap-2">
+                <TypeBadge type={m.type} />
+                <ReplyStatus m={m} grace={brand?.grace_hours ?? 24} />
+              </span>
+            </figcaption>
+            <blockquote className="whitespace-pre-wrap break-words px-4 py-4 text-xl font-medium leading-8 text-foreground">
+              {m.text}
+            </blockquote>
+            <div className="flex flex-wrap items-center gap-3 border-t px-4 py-2 text-xs">
+              <span className={cn(m.proof === "api" || m.proof === "human" ? "text-replied" : "text-amber")}>
+                {m.proof === "api" || m.proof === "human" ? "Verified" : "Unverified"}
+              </span>
+              <a
+                href={m.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-auto text-primary underline underline-offset-2"
+              >
+                Open original
+              </a>
+            </div>
+          </figure>
 
           {theme && (
             <div className="space-y-2">
