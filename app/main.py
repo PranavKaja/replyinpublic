@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 from app.db import ROOT, connect, load_env
-from app.hooks import save_reply_draft, update_draft_status
+from app.hooks import mark_publish_demo, save_reply_draft, update_draft_status
 from app.ingest import ingest_records, parse_raw_lines
 
 app = FastAPI(title="ReplyInPublic")
@@ -28,6 +28,149 @@ def db():
 @app.get("/", response_class=HTMLResponse)
 def home() -> str:
     return (ROOT / "app" / "preview.html").read_text(encoding="utf-8")
+
+
+@app.get("/console", response_class=HTMLResponse)
+def console() -> str:
+    return (ROOT / "app" / "console.html").read_text(encoding="utf-8")
+
+
+@app.get("/api/console/summary")
+def console_summary() -> dict:
+    focus = json.loads((ROOT / "focus.json").read_text(encoding="utf-8"))["brands"]
+    with db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM mentions")
+            total = cur.fetchone()[0]
+            cur.execute(
+                """
+                SELECT count(*) FROM mentions m
+                LEFT JOIN labels l ON l.mention_id = m.id AND l.posted_at = m.posted_at
+                WHERE m.brand_replied IS NOT TRUE
+                  AND COALESCE(l.relevant, true) IS TRUE
+                """
+            )
+            open_count = cur.fetchone()[0]
+            cur.execute("SELECT count(*) FROM publish_queue WHERE status = 'queued'")
+            queued = cur.fetchone()[0]
+            cur.execute("SELECT count(*) FROM onboarding_leads WHERE status = 'new'")
+            leads_new = cur.fetchone()[0]
+            cur.execute(
+                """
+                SELECT b.name, c.platform, c.status, c.note
+                FROM brand_connections c
+                JOIN brands b ON b.id = c.brand_id
+                WHERE c.brand_id = ANY(%s)
+                ORDER BY b.name, c.platform
+                """,
+                (focus,),
+            )
+            connections = [
+                {"brand": name, "platform": platform, "status": status, "note": note}
+                for name, platform, status, note in cur.fetchall()
+            ]
+            cur.execute(
+                """
+                SELECT q.id, q.case_id, q.channel, q.body, q.status, q.queued_at
+                FROM publish_queue q
+                ORDER BY q.queued_at DESC
+                LIMIT 25
+                """
+            )
+            publish_queue = [
+                {
+                    "id": qid,
+                    "case_id": case_id,
+                    "channel": channel,
+                    "body": body,
+                    "status": status,
+                    "queued_at": queued_at.isoformat() if isinstance(queued_at, datetime) else str(queued_at),
+                }
+                for qid, case_id, channel, body, status, queued_at in cur.fetchall()
+            ]
+            cur.execute(
+                """
+                SELECT company_name, contact_name, contact_email, brand_slug, created_at
+                FROM onboarding_leads
+                ORDER BY created_at DESC
+                LIMIT 10
+                """
+            )
+            leads = [
+                {
+                    "company_name": company,
+                    "contact_name": contact,
+                    "contact_email": email,
+                    "brand_slug": slug,
+                    "created_at": created_at.isoformat() if isinstance(created_at, datetime) else str(created_at),
+                }
+                for company, contact, email, slug, created_at in cur.fetchall()
+            ]
+    return {
+        "stats": [
+            {"label": "Stored mentions", "value": str(total)},
+            {"label": "Open (not brand replied)", "value": str(open_count)},
+            {"label": "Queued to publish", "value": str(queued)},
+            {"label": "New pilot signups", "value": str(leads_new)},
+        ],
+        "connections": connections,
+        "publish_queue": publish_queue,
+        "leads": leads,
+    }
+
+
+@app.post("/api/onboard")
+async def api_onboard(request: Request) -> dict:
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="JSON body required")
+    company = str(payload.get("company_name") or "").strip()
+    contact_name = str(payload.get("contact_name") or "").strip()
+    email = str(payload.get("contact_email") or "").strip()
+    brand_slug = str(payload.get("brand_slug") or "").strip() or None
+    kb_url = str(payload.get("kb_url") or "").strip() or None
+    platforms = payload.get("platforms") or []
+    if not company or not contact_name or not email:
+        raise HTTPException(status_code=400, detail="company_name, contact_name, contact_email required")
+    if not isinstance(platforms, list):
+        platforms = []
+    with db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO onboarding_leads (
+                  company_name, contact_name, contact_email, brand_slug, kb_url, platforms
+                ) VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (company, contact_name, email, brand_slug, kb_url, platforms),
+            )
+            lead_id = cur.fetchone()[0]
+            if brand_slug:
+                for platform in platforms:
+                    cur.execute(
+                        """
+                        INSERT INTO brand_connections (brand_id, platform, status, note)
+                        VALUES (%s, %s, 'pilot_requested', %s)
+                        ON CONFLICT (brand_id, platform) DO UPDATE SET
+                          status = 'pilot_requested',
+                          note = EXCLUDED.note,
+                          updated_at = now()
+                        """,
+                        (brand_slug, platform, f"Requested by {company}"),
+                    )
+        conn.commit()
+    return {"id": lead_id, "status": "new"}
+
+
+@app.post("/api/publish/{queue_id}/demo")
+def publish_demo(queue_id: int) -> dict:
+    with db() as conn:
+        ok = mark_publish_demo(conn, queue_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="queue row not found or already posted")
+    return {"status": "posted_demo", "queue_id": queue_id}
 
 
 @app.get("/api/preview")
@@ -417,11 +560,14 @@ async def api_draft(request: Request, token: str = "") -> dict:
     posted_at = str(payload.get("posted_at") or "").strip()
     action = str(payload.get("action") or "").strip().lower()
     final_text = payload.get("final_text")
+    publish_channel = str(payload.get("publish_channel") or "public").strip() or "public"
     if not mention_id or not posted_at or action not in {"approve", "edit", "reject"}:
         raise HTTPException(status_code=400, detail="mention_id, posted_at, and action required")
     status = {"approve": "approved", "edit": "edited", "reject": "rejected"}[action]
     with db() as conn:
-        ok = update_draft_status(conn, mention_id, posted_at, status, final_text)
+        ok = update_draft_status(
+            conn, mention_id, posted_at, status, final_text, publish_channel=publish_channel
+        )
     if not ok:
         raise HTTPException(status_code=404, detail="open copilot on this message first")
     return {"status": status, "mention_id": mention_id}

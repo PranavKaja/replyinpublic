@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ReplyInPublic · Brand console</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1c1915;
+      --muted: #5c564c;
+      --line: #e4dccd;
+      --paper: #f7f3ec;
+      --card: #fffdf8;
+      --accent: #9c3418;
+      --ok: #1f6b45;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 16px/1.45 Georgia, serif; background: var(--paper); color: var(--ink); }
+    header, main { max-width: 1080px; margin: 0 auto; padding: 24px 20px; }
+    header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: end; border-bottom: 1px solid var(--line); }
+    h1 { font-size: 28px; margin: 0; font-weight: 500; }
+  .sub { margin: 4px 0 0; color: var(--muted); font-size: 15px; }
+  nav a { font: 13px ui-sans-serif, sans-serif; color: var(--ink); margin-left: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin: 20px 0; }
+  .stat { background: var(--card); border: 1px solid var(--line); padding: 14px 16px; }
+  .stat b { display: block; font: 28px ui-sans-serif, sans-serif; color: var(--accent); }
+  .stat span { font: 12px ui-sans-serif, sans-serif; color: var(--muted); }
+  section { margin: 28px 0; }
+  h2 { font-size: 20px; margin: 0 0 12px; font-weight: 500; }
+  .panel { background: var(--card); border: 1px solid var(--line); padding: 18px; }
+  label { display: block; font: 12px ui-sans-serif, sans-serif; color: var(--muted); margin: 10px 0 4px; }
+  input, select, textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--line);
+    font: 14px ui-sans-serif, sans-serif; background: #fff;
+  }
+  button.primary {
+    margin-top: 14px; padding: 10px 16px; border: none; background: var(--ink);
+    color: #fff; font: 14px ui-sans-serif, sans-serif; cursor: pointer;
+  }
+  button.small { padding: 6px 10px; font-size: 12px; border: 1px solid var(--line); background: #fff; cursor: pointer; margin-right: 6px; }
+  table { width: 100%; border-collapse: collapse; font: 13px ui-sans-serif, sans-serif; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; background: #eee8dc; }
+  .pill.ok { background: #dff1e8; color: var(--ok); }
+  .pill.wait { background: #fde8e2; color: var(--accent); }
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .step { border-left: 3px solid var(--accent); padding-left: 12px; }
+  .step h3 { margin: 0 0 6px; font-size: 15px; }
+  .step p { margin: 0; font-size: 14px; color: var(--muted); }
+  #toast { font: 13px ui-sans-serif, sans-serif; color: var(--ok); min-height: 20px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Brand console</h1>
+      <p class="sub">Phase 1.5 pilot. Connect accounts, approve drafts, queue public replies. API posting comes next.</p>
+    </div>
+    <nav>
+      <a href="/">Live inbox</a>
+      <a href="https://overheard.pranavkaja.com" target="_blank" rel="noreferrer">Overheard preview</a>
+    </nav>
+  </header>
+  <main>
+    <div class="grid" id="stats"></div>
+    <section>
+      <h2>Start onboarding today</h2>
+      <div class="steps">
+        <div class="step"><h3>1 · Tell us your brand</h3><p>We create your pilot row and SLA timer.</p></div>
+        <div class="step"><h3>2 · Connect surfaces</h3><p>YouTube, Instagram, TikTok, X, Reddit. OAuth wiring is next, queue works now.</p></div>
+        <div class="step"><h3>3 · Load public docs</h3><p>Warranties and FAQs power grounded replies.</p></div>
+        <div class="step"><h3>4 · Approve and publish</h3><p>Human approves every draft. Demo accounts can post while APIs connect.</p></div>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>Request pilot access</h2>
+      <form id="onboard-form">
+        <label>Company name</label>
+        <input name="company_name" required placeholder="Acme Appliances Inc.">
+        <label>Your name</label>
+        <input name="contact_name" required placeholder="Jordan Lee">
+        <label>Work email</label>
+        <input name="contact_email" type="email" required placeholder="jordan@acme.com">
+        <label>Brand on our kitchen demo list (optional)</label>
+        <select name="brand_slug">
+          <option value="">New brand, not listed yet</option>
+          <option value="kitchenaid">KitchenAid</option>
+          <option value="nespresso">Nespresso</option>
+          <option value="breville">Breville</option>
+          <option value="instant">Instant Pot</option>
+          <option value="ninja">Ninja</option>
+        </select>
+        <label>Public warranty or FAQ URL</label>
+        <input name="kb_url" placeholder="https://example.com/support/warranty">
+        <label>Platforms you care about</label>
+        <input name="platforms" placeholder="youtube, instagram, tiktok, x, reddit">
+        <button class="primary" type="submit">Submit pilot request</button>
+      </form>
+      <p id="toast"></p>
+    </section>
+    <section class="panel">
+      <h2>Connection status (demo brands)</h2>
+      <div style="overflow-x:auto"><table id="connections"><thead><tr><th>Brand</th><th>Platform</th><th>Status</th><th>Note</th></tr></thead><tbody></tbody></table></div>
+    </section>
+    <section class="panel">
+      <h2>Publish queue (approved drafts)</h2>
+      <p class="sub" style="margin-bottom:10px">Each row is ready for a human or demo account to post. Mark demo posted after you paste on your pilot X or Instagram.</p>
+      <div style="overflow-x:auto"><table id="queue"><thead><tr><th>Case</th><th>Channel</th><th>Reply</th><th>Status</th><th></th></tr></thead><tbody></tbody></table></div>
+    </section>
+    <section class="panel">
+      <h2>Recent pilot signups</h2>
+      <div style="overflow-x:auto"><table id="leads"><thead><tr><th>Company</th><th>Contact</th><th>Brand</th><th>When</th></tr></thead><tbody></tbody></table></div>
+    </section>
+  </main>
+  <script>
+    async function load() {
+      const data = await fetch("/api/console/summary").then((r) => r.json());
+      const stats = document.getElementById("stats");
+      stats.replaceChildren();
+      for (const item of data.stats) {
+        const card = document.createElement("div");
+        card.className = "stat";
+        const n = document.createElement("b");
+        n.textContent = item.value;
+        const l = document.createElement("span");
+        l.textContent = item.label;
+        card.append(n, l);
+        stats.appendChild(card);
+      }
+      const connBody = document.querySelector("#connections tbody");
+      connBody.replaceChildren();
+      for (const row of data.connections) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${row.brand}</td><td>${row.platform}</td><td><span class="pill wait">${row.status}</span></td><td>${row.note || ""}</td>`;
+        connBody.appendChild(tr);
+      }
+      const queueBody = document.querySelector("#queue tbody");
+      queueBody.replaceChildren();
+      for (const row of data.publish_queue) {
+        const tr = document.createElement("tr");
+        const tdAct = document.createElement("td");
+        const copy = document.createElement("button");
+        copy.className = "small";
+        copy.textContent = "Copy reply";
+        copy.onclick = () => { navigator.clipboard.writeText(row.body); };
+        const mark = document.createElement("button");
+        mark.className = "small";
+        mark.textContent = "Mark demo posted";
+        mark.onclick = async () => {
+          await fetch("/api/publish/" + row.id + "/demo", { method: "POST" });
+          load();
+        };
+        tdAct.append(copy, mark);
+        tr.innerHTML = `<td>${row.case_id || row.id}</td><td>${row.channel}</td><td>${row.body.slice(0, 120)}${row.body.length > 120 ? "…" : ""}</td><td><span class="pill ${row.status === "queued" ? "wait" : "ok"}">${row.status}</span></td>`;
+        tr.appendChild(tdAct);
+        queueBody.appendChild(tr);
+      }
+      const leadsBody = document.querySelector("#leads tbody");
+      leadsBody.replaceChildren();
+      for (const row of data.leads) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${row.company_name}</td><td>${row.contact_name} · ${row.contact_email}</td><td>${row.brand_slug || "new"}</td><td>${row.created_at.slice(0, 16).replace("T", " ")}</td>`;
+        leadsBody.appendChild(tr);
+      }
+    }
+    document.getElementById("onboard-form").onsubmit = async (event) => {
+      event.preventDefault();
+      const form = event.target;
+      const payload = Object.fromEntries(new FormData(form).entries());
+      payload.platforms = (payload.platforms || "")
+        .split(/[,\s]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+      const res = await fetch("/api/onboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      document.getElementById("toast").textContent = res.ok
+        ? "Pilot request " + data.id + " received. We will email you at " + payload.contact_email + "."
+        : (data.detail || "Could not save request");
+      if (res.ok) form.reset();
+      load();
+    };
+    load();
+    setInterval(load, 30000);
+  </script>
+</body>
+</html>

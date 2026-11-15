@@ -39,6 +39,55 @@ MIGRATIONS = [
       PRIMARY KEY (mention_id, posted_at)
     )
     """,
+    """
+    ALTER TABLE reply_drafts
+      ADD COLUMN IF NOT EXISTS publish_channel text DEFAULT 'public',
+      ADD COLUMN IF NOT EXISTS publish_status text DEFAULT 'none'
+    """,
+    """
+    ALTER TABLE brands
+      ADD COLUMN IF NOT EXISTS onboarding_status text DEFAULT 'demo'
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS brand_connections (
+      brand_id text NOT NULL REFERENCES brands (id),
+      platform text NOT NULL,
+      status text NOT NULL DEFAULT 'pilot_pending',
+      note text,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (brand_id, platform)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS onboarding_leads (
+      id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      company_name text NOT NULL,
+      contact_name text NOT NULL,
+      contact_email text NOT NULL,
+      brand_slug text,
+      kb_url text,
+      platforms text[] NOT NULL DEFAULT '{}',
+      status text NOT NULL DEFAULT 'new',
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS publish_queue (
+      id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      mention_id bigint NOT NULL,
+      posted_at timestamptz NOT NULL,
+      case_id text,
+      channel text NOT NULL DEFAULT 'public',
+      body text NOT NULL,
+      status text NOT NULL DEFAULT 'queued',
+      queued_at timestamptz NOT NULL DEFAULT now(),
+      posted_demo_at timestamptz
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS publish_queue_status_idx
+      ON publish_queue (status, queued_at DESC)
+    """,
 ]
 
 
@@ -112,6 +161,7 @@ def update_draft_status(
     posted_at,
     status: str,
     final_text: str | None,
+    publish_channel: str = "public",
 ) -> bool:
     with conn.cursor() as cur:
         cur.execute(
@@ -119,13 +169,74 @@ def update_draft_status(
             UPDATE reply_drafts
             SET status = %s,
                 final_text = COALESCE(%s, final_text, draft_text),
+                publish_channel = %s,
+                publish_status = CASE
+                  WHEN %s IN ('approved', 'edited') THEN 'queued'
+                  WHEN %s = 'rejected' THEN 'skipped'
+                  ELSE publish_status
+                END,
                 updated_at = now()
             WHERE mention_id = %s AND posted_at = %s
-            RETURNING draft_text
+            RETURNING COALESCE(final_text, draft_text)
             """,
-            (status, final_text, mention_id, posted_at),
+            (
+                status,
+                final_text,
+                publish_channel,
+                status,
+                status,
+                mention_id,
+                posted_at,
+            ),
         )
         row = cur.fetchone()
+        if row and status in {"approved", "edited"}:
+            text = row[0]
+            cur.execute(
+                """
+                SELECT case_id FROM mentions
+                WHERE id = %s AND posted_at = %s
+                """,
+                (mention_id, posted_at),
+            )
+            case_row = cur.fetchone()
+            case_id = case_row[0] if case_row else None
+            cur.execute(
+                """
+                INSERT INTO publish_queue (mention_id, posted_at, case_id, channel, body, status)
+                VALUES (%s, %s, %s, %s, %s, 'queued')
+                """,
+                (mention_id, posted_at, case_id, publish_channel, text),
+            )
+    if row:
+        conn.commit()
+        return True
+    conn.rollback()
+    return False
+
+
+def mark_publish_demo(conn, queue_id: int) -> bool:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE publish_queue
+            SET status = 'posted_demo', posted_demo_at = now()
+            WHERE id = %s AND status = 'queued'
+            RETURNING mention_id, posted_at
+            """,
+            (queue_id,),
+        )
+        row = cur.fetchone()
+        if row:
+            mention_id, posted_at = row
+            cur.execute(
+                """
+                UPDATE reply_drafts
+                SET publish_status = 'posted_demo', updated_at = now()
+                WHERE mention_id = %s AND posted_at = %s
+                """,
+                (mention_id, posted_at),
+            )
     if row:
         conn.commit()
         return True
