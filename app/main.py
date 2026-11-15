@@ -335,7 +335,7 @@ def _preview(brand: str, unanswered: int, kind: str = "") -> dict:
             if kind in {"question", "complaint", "praise", "purchase_intent", "noise"}:
                 filters.append("l.type = %s")
                 params.append(kind)
-            params.append(80)
+            params.append(200)
             cur.execute(
                 f"""
                 SELECT m.id, b.id, b.name, m.author, m.text, m.url, m.posted_at,
