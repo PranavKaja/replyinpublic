@@ -323,14 +323,18 @@ table.brands { width: 100%; border-collapse: collapse; font-size: 13px; }
     const L = document.getElementById("list");
     if (S.view === "brands") {
       const max = Math.max(1, ...brands.map(b => b.unanswered_14d || 0));
-      return put(L, $("li", {}, $("div", { class: "tbl-wrap" }, $("table", { class: "brands" },
+      const table = $("table", { class: "brands" },
         $("thead", {}, $("tr", {}, $("th", { text: "Brand" }), $("th", { class: "n", text: "Open, 14 days" }), $("th", { text: "Support pages" }))),
         $("tbody", {}, brands.map(b => $("tr", {},
           $("td", {}, $("button", { type: "button", onclick: () => { S.brand = b.id; S.view = "inbox"; sel = null; render(); }, text: b.name })),
           $("td", { class: "n" }, String(b.unanswered_14d || 0), $("span", { class: "mini", style: "width:" + Math.round(40 * (b.unanswered_14d || 0) / max) + "px" })),
           $("td", { text: b.kb_chunks ? b.kb_chunks + " passages" : "None loaded" })
-        ))))),
-        $("li", { class: "note", text: "Counts only. A public reply rate stays off until the reply was checked." }));
+        )))
+      );
+      return put(L,
+        $("li", {}, $("div", { class: "tbl-wrap" }, table)),
+        $("li", { class: "note", text: "Counts only. A public reply rate stays off until the reply was checked." })
+      );
     }
     const ms = inView();
     const items = [];
