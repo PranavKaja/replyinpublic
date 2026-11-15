@@ -1,10 +1,10 @@
-import { Youtube, Instagram, Twitter, MessageCircle } from "lucide-react";
+import { Youtube, Instagram, Twitter, MessageCircle, Music2, MessagesSquare } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { hoursSince, isOverdue, PLACEHOLDER_RE, type Mention } from "@/lib/overheard/logic";
+import { hoursSince, replyState, REPLY_LABEL, PLACEHOLDER_RE, type Mention, type ReplyState } from "@/lib/overheard/logic";
 
 export function PlatformIcon({ p, className }: { p: string; className?: string }) {
-  const I = p === "youtube" ? Youtube : p === "instagram" ? Instagram : p === "x" ? Twitter : MessageCircle;
+  const I = p === "youtube" ? Youtube : p === "instagram" ? Instagram : p === "x" ? Twitter : p === "tiktok" ? Music2 : p === "reddit" ? MessagesSquare : MessageCircle;
   return <I aria-label={p} className={cn("size-3.5 shrink-0", className)} />;
 }
 
@@ -49,11 +49,10 @@ export function TypeBadge({ type }: { type: string }) {
   return <span className={cn("rounded-full border px-1.5 py-px text-[10px] font-medium uppercase tracking-wide", tone)}>{TYPE_LABEL[type] ?? type}</span>;
 }
 
+const REPLY_TONE: Record<ReplyState, keyof typeof TAG_TONE> = { replied: "replied", unconfirmed: "amber", overdue: "stamp", awaiting: "muted" };
 export function ReplyStatus({ m, grace }: { m: Mention; grace: number }) {
-  if (m.brand_replied === true) return <Tag tone="replied">Replied</Tag>;
-  if (m.brand_replied === null) return <Tag tone="amber">Not confirmed</Tag>;
-  if (isOverdue(m, grace)) return <Tag tone="stamp">No reply</Tag>;
-  return <Tag tone="muted">Awaiting</Tag>;
+  const state = replyState(m, grace);
+  return <Tag tone={REPLY_TONE[state]}>{REPLY_LABEL[state]}</Tag>;
 }
 
 export function Highlighted({ text }: { text: string }) {

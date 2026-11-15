@@ -69,7 +69,7 @@ export const MentionList = forwardRef<HTMLInputElement, Props>(function MentionL
       <ul ref={listRef} className="min-h-0 flex-1 overflow-y-auto">
         {items.length === 0 && (
           <li className="p-8 text-center font-serif text-lg font-semibold tracking-tight text-muted-foreground">
-            {q || f.brand || f.platform || f.theme || f.type || f.where !== "all"
+            {q || f.brand || f.platform || f.theme || f.type || f.reply || f.urgency || f.where !== "all"
               ? "No matching messages"
               : f.view === "inbox"
                 ? "Inbox Zero · All messages have been triaged"

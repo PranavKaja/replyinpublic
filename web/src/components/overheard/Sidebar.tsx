@@ -28,6 +28,11 @@ import {
   type Theme,
   type View,
   type Where,
+  type Sort,
+  type Facet,
+  facetCounts,
+  REPLY_STATES,
+  REPLY_LABEL,
 } from "@/lib/overheard/logic";
 import { Button } from "@/components/ui/button";
 import { Logo } from "./Logo";
@@ -68,6 +73,17 @@ export function Sidebar({ f, set, brands, themes, mentions, counts }: Props) {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
+
+  const listView = VIEWS.some((view) => view.id === f.view) || f.view === "pipeline";
+  const graceOf = (id: string) => brands.find((b) => b.id === id)?.grace_hours ?? 24;
+  const now = Date.now();
+  // Each option shows how many messages it would leave, with the other filters still on.
+  const count = (facet: Facet) => (listView ? facetCounts(mentions, f, facet, graceOf, now) : undefined);
+  const platforms = PLATFORM_ORDER.filter((p) => mentions.some((m) => m.platform === p));
+  const issueOptions: [string, string][] = themes
+    .filter((t) => !f.brand || t.brand_id === f.brand)
+    .map((t) => [t.id, f.brand ? t.name : `${brands.find((b) => b.id === t.brand_id)?.name ?? ""}: ${t.name}`]);
+  const active = [f.where !== "all", f.brand, f.platform, f.theme, f.type, f.reply, f.urgency].filter(Boolean).length;
 
   const item = (active: boolean) =>
     cn(
@@ -111,58 +127,44 @@ export function Sidebar({ f, set, brands, themes, mentions, counts }: Props) {
         ))}
       </div>
 
-      <div className="space-y-3 px-2">
-        <Label>Where</Label>
-        <select
-          value={f.where}
-          onChange={(e) => set({ where: e.target.value as Where })}
-          className="w-full rounded-sm border bg-card px-2 py-1 text-sm"
-        >
-          <option value="all">Everywhere</option>
-          <option value="owned">Brand's own posts</option>
-          <option value="earned">Other people's posts</option>
-        </select>
-        <Label>Client</Label>
-        <select
-          value={f.brand}
-          onChange={(e) => set({ brand: e.target.value })}
-          className="w-full rounded-sm border bg-card px-2 py-1 text-sm"
-        >
-          <option value="">All clients</option>
-          {brands.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
-        <Label>Platform</Label>
-        <select
-          value={f.platform}
-          onChange={(e) => set({ platform: e.target.value })}
-          className="w-full rounded-sm border bg-card px-2 py-1 text-sm"
-        >
-          <option value="">All platforms</option>
-          <option value="youtube">YouTube</option>
-          <option value="instagram">Instagram</option>
-          <option value="x">X</option>
-          <option value="reddit">Reddit</option>
-        </select>
-        {(VIEWS.some((view) => view.id === f.view) || f.view === "pipeline") && <>
-          <Label>Tag</Label>
-          <select
-            aria-label="Filter by tag"
-            value={f.type ?? ""}
-            onChange={(e) => set({ type: e.target.value })}
-            className="w-full rounded-sm border bg-card px-2 py-1 text-sm"
-          >
-            <option value="">All tags</option>
-            <option value="purchase_intent">Buyer</option>
-            <option value="complaint">Complaint</option>
-            <option value="question">Question</option>
-            <option value="praise">Praise</option>
-            <option value="noise">Noise</option>
-          </select>
-        </>}
+      <div className="space-y-2.5 px-2">
+        <div className="flex items-center justify-between">
+          <Label>Filters</Label>
+          {active > 0 && (
+            <button
+              onClick={() => set({ where: "all", brand: "", platform: "", theme: "", type: "", reply: "", urgency: "" })}
+              className="text-[11px] text-stamp hover:underline"
+            >
+              Clear {active}
+            </button>
+          )}
+        </div>
+        {listView && (
+          <Pick label="Reply status" value={f.reply ?? ""} onChange={(v) => set({ reply: v })} all="Any reply status" counts={count("reply")}
+            options={REPLY_STATES.map((r) => [r, REPLY_LABEL[r]])} />
+        )}
+        {listView && (
+          <Pick label="Tag" value={f.type ?? ""} onChange={(v) => set({ type: v })} all="All tags" counts={count("type")}
+            options={[["complaint", "Complaint"], ["question", "Question"], ["purchase_intent", "Buyer"]]} />
+        )}
+        {listView && (
+          <Pick label="Urgency" value={f.urgency ?? ""} onChange={(v) => set({ urgency: v })} all="Any urgency" counts={count("urgency")}
+            options={[["high", "High"], ["medium", "Medium"], ["low", "Low"]]} />
+        )}
+        <Pick label="Client" value={f.brand} onChange={(v) => set({ brand: v, theme: "" })} all="All clients" counts={count("brand")}
+          options={brands.map((b) => [b.id, b.name])} />
+        {listView && issueOptions.length > 0 && (
+          <Pick label="Issue" value={f.theme} onChange={(v) => set({ theme: v })} all="All issues" counts={count("theme")}
+            options={issueOptions} hideEmpty />
+        )}
+        <Pick label="Platform" value={f.platform} onChange={(v) => set({ platform: v })} all="All platforms" counts={count("platform")}
+          options={platforms.map((p) => [p, PLATFORM_LABEL[p] ?? p])} />
+        <Pick label="Where" value={f.where} onChange={(v) => set({ where: v as Where })} all="Everywhere" allValue="all" counts={count("where")}
+          options={[["owned", "Brand's own posts"], ["earned", "Other people's posts"]]} />
+        {f.view !== "pipeline" && listView && (
+          <Pick label="Sort" value={f.sort} onChange={(v) => set({ sort: v as Sort })}
+            options={[["newest", "Newest first"], ["oldest", "Oldest first"], ["priority", "Highest priority"]]} />
+        )}
       </div>
 
       <div className="mt-auto space-y-3 border-t pt-3">
@@ -257,6 +259,51 @@ export function Sidebar({ f, set, brands, themes, mentions, counts }: Props) {
         </div>
       </div>
     </nav>
+  );
+}
+
+const PLATFORM_ORDER = ["youtube", "instagram", "tiktok", "x", "reddit"];
+const PLATFORM_LABEL: Record<string, string> = { youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok", x: "X", reddit: "Reddit" };
+
+function Pick({
+  label,
+  value,
+  onChange,
+  options,
+  all,
+  allValue = "",
+  counts,
+  hideEmpty,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: [string, string][];
+  all?: string;
+  allValue?: string;
+  counts?: Record<string, number> | undefined;
+  hideEmpty?: boolean;
+}) {
+  const n = (v: string) => (counts ? ` (${counts[v] ?? 0})` : "");
+  const shown = hideEmpty && counts ? options.filter(([v]) => (counts[v] ?? 0) > 0 || v === value) : options;
+  return (
+    <label className="block space-y-1">
+      <Label>{label}</Label>
+      <select
+        aria-label={`Filter by ${label.toLowerCase()}`}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(
+          "w-full rounded-sm border bg-card px-2 py-1 text-sm",
+          all !== undefined && value !== allValue && "border-stamp/60 font-medium",
+        )}
+      >
+        {all !== undefined && <option value={allValue}>{all}{n(allValue)}</option>}
+        {shown.map(([v, text]) => (
+          <option key={v} value={v}>{text}{n(v)}</option>
+        ))}
+      </select>
+    </label>
   );
 }
 

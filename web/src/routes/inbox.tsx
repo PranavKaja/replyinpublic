@@ -17,6 +17,8 @@ import {
   type Status,
   type View,
   type Where,
+  matches,
+  REPLY_STATES,
 } from "@/lib/overheard/logic";
 import { BrandKitView } from "@/components/overheard/BrandKitView";
 import { LoadingIntro } from "@/components/overheard/LoadingIntro";
@@ -38,6 +40,8 @@ export interface Search {
   platform?: string | undefined;
   theme?: string | undefined;
   type?: string | undefined;
+  reply?: string | undefined;
+  urgency?: string | undefined;
   q?: string | undefined;
   sort?: Sort | undefined;
   id?: string | undefined;
@@ -66,9 +70,11 @@ export const Route = createFileRoute("/inbox")({
       brand: str(s.brand),
       platform: str(s.platform),
       theme: str(s.theme),
-      type: ["purchase_intent", "complaint", "question", "praise", "noise"].includes(s.type as string) ? str(s.type) : undefined,
+      type: ["purchase_intent", "complaint", "question"].includes(s.type as string) ? str(s.type) : undefined,
+      reply: (REPLY_STATES as string[]).includes(s.reply as string) ? str(s.reply) : undefined,
+      urgency: ["high", "medium", "low"].includes(s.urgency as string) ? str(s.urgency) : undefined,
       q: str(s.q),
-      sort: ["oldest", "newest", "liked"].includes(s.sort as string) ? (s.sort as Sort) : undefined,
+      sort: ["oldest", "priority"].includes(s.sort as string) ? (s.sort as Sort) : undefined,
       id: str(s.id),
     };
   },
@@ -119,8 +125,10 @@ function App() {
     platform: s.platform ?? "",
     theme: s.theme ?? "",
     type: s.type ?? "",
+    reply: s.reply ?? "",
+    urgency: s.urgency ?? "",
     q: s.q ?? "",
-    sort: "newest",
+    sort: s.sort ?? "newest",
   };
   const set = useCallback(
     (p: Partial<Filters> & { id?: string }) => {
@@ -131,7 +139,7 @@ function App() {
             if (
               next[k] === "" ||
               next[k] === "all" ||
-              next[k] === "priority" ||
+              next[k] === "newest" ||
               (k === "view" && next[k] === "inbox")
             )
               delete next[k];
@@ -156,9 +164,10 @@ function App() {
   }, [q]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const brands = useMemo(() => new Map(data.brands.map((b) => [b.id, b])), [data.brands]);
+  const graceOf = useCallback((id: string) => brands.get(id)?.grace_hours ?? 24, [brands]);
   const items = useMemo(
-    () => filterMentions(data.mentions, { ...f, q }, now),
-    [data.mentions, f.view, f.where, f.brand, f.platform, f.theme, f.type, f.sort, q, now],
+    () => filterMentions(data.mentions, { ...f, q }, now, graceOf),
+    [data.mentions, f.view, f.where, f.brand, f.platform, f.theme, f.type, f.reply, f.urgency, f.sort, q, now, graceOf],
   ); // eslint-disable-line react-hooks/exhaustive-deps
   const counts = useMemo(() => {
     const c: Record<string, number> = { inbox: inboxCount(data.mentions, now) };
@@ -280,7 +289,7 @@ function App() {
     const st = m ? effectiveStatus(m, now) : "inbox";
     const view = (VIEWS as string[]).includes(st) ? (st as View) : "inbox";
     setQ("");
-    set({ id, view, brand: "", platform: "", theme: "", type: "", where: "all", q: "" });
+    set({ id, view, brand: "", platform: "", theme: "", type: "", reply: "", urgency: "", where: "all", q: "" });
   };
   const theme = selected?.theme_id
     ? data.themes.find((t) => t.id === selected.theme_id)
@@ -422,13 +431,7 @@ function App() {
               )}
               {f.view === "pipeline" && (
                 <PipelineView
-                  mentions={data.mentions.filter(
-                    (m) =>
-                      (!f.brand || m.brand_id === f.brand) &&
-                      (f.where === "all" || m.surface === f.where) &&
-                      (!f.platform || m.platform === f.platform) &&
-                      (!f.type || m.type === f.type),
-                  )}
+                  mentions={data.mentions.filter((m) => matches(m, { ...f, q: "" }, graceOf, now))}
                   brands={brands}
                   move={(id, st) => {
                     const m = data.mentions.find((x) => x.id === id);
