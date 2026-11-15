@@ -63,12 +63,12 @@ const OVERVIEWS: { id: View; label: string; icon: typeof Inbox }[] = [
 
 export function Sidebar({ f, set, brands, themes, mentions, counts }: Props) {
   const [dark, setDark] = useState(false);
-  const [name, setName] = useState("Alex Rivera");
-  const [role, setRole] = useState("Senior Triage Lead");
+  const [name, setName] = useState("Pranav Kaja");
+  const [role, setRole] = useState("Founder");
   const [available, setAvailable] = useState(true);
   useEffect(() => {
-    setName(localStorage.getItem("overheard:name") ?? "Alex Rivera");
-    setRole(localStorage.getItem("overheard:role") ?? "Senior Triage Lead");
+    setName(localStorage.getItem("overheard:name") ?? "Pranav Kaja");
+    setRole(localStorage.getItem("overheard:role") ?? "Founder");
   }, []);
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
