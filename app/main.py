@@ -7,7 +7,8 @@ import urllib.request
 from datetime import datetime, timedelta
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.db import ROOT, connect, load_env
 from app.hooks import mark_publish_demo, save_reply_draft, update_draft_status
@@ -25,19 +26,185 @@ def db():
     return _conn
 
 
-@app.get("/", response_class=HTMLResponse)
-def home() -> str:
+DIST = ROOT / "web" / "dist"
+app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
+
+
+def _spa() -> FileResponse:
+    return FileResponse(DIST / "index.html", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/")
+def home() -> FileResponse:
+    return _spa()
+
+
+@app.get("/inbox")
+def inbox_page() -> FileResponse:
+    return _spa()
+
+
+@app.get("/favicon.svg")
+def favicon_svg() -> FileResponse:
+    return FileResponse(DIST / "favicon.svg")
+
+
+@app.get("/favicon.png")
+@app.get("/favicon.ico")
+def favicon_png() -> FileResponse:
+    return FileResponse(DIST / "favicon.png")
+
+
+@app.get("/app")
+@app.get("/console")
+def old_workspace_links() -> RedirectResponse:
+    return RedirectResponse("/inbox")
+
+
+@app.get("/old", response_class=HTMLResponse)
+def old_landing() -> str:
     return (ROOT / "app" / "landing.html").read_text(encoding="utf-8")
 
 
-@app.get("/app", response_class=HTMLResponse)
-def workspace() -> str:
+@app.get("/old/app", response_class=HTMLResponse)
+def old_workspace() -> str:
     return (ROOT / "app" / "crm.html").read_text(encoding="utf-8")
 
 
-@app.get("/console", response_class=HTMLResponse)
-def console() -> str:
-    return (ROOT / "app" / "crm.html").read_text(encoding="utf-8")
+DESK_STATUSES = {"inbox", "parked", "snoozed", "handled", "dismissed", "feedback"}
+_URGENCY_POINTS = {"high": 60, "medium": 40, "low": 20}
+
+
+@app.get("/api/desk/data")
+def desk_data() -> dict:
+    """Brands, issues and messages in the shape the workspace reads."""
+    focus = json.loads((ROOT / "focus.json").read_text(encoding="utf-8"))["brands"]
+    with _lock:
+        conn = db()
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, name, reply_sla_hours FROM brands WHERE id = ANY(%s) ORDER BY name",
+                (focus,),
+            )
+            brands = [
+                {"id": bid, "slug": bid, "name": name, "category": "kitchen", "grace_hours": sla or 48}
+                for bid, name, sla in cur.fetchall()
+            ]
+            cur.execute(
+                """
+                SELECT m.id, m.brand_id, m.platform, m.surface, m.url, m.parent_url, v.title,
+                       m.author, m.text, m.posted_at, m.brand_replied, m.reply_text, m.proof,
+                       l.type, l.urgency, l.is_buyer,
+                       s.status, s.snoozed_until, s.status_changed_at, s.is_feedback, s.draft
+                FROM mentions m
+                JOIN LATERAL (
+                  SELECT type, urgency, is_buyer FROM labels
+                  WHERE mention_id = m.id AND posted_at = m.posted_at
+                  ORDER BY labeled_at DESC NULLS LAST LIMIT 1
+                ) l ON true
+                LEFT JOIN videos v
+                  ON m.platform = 'youtube' AND v.brand_id = m.brand_id
+                 AND v.video_id = split_part(split_part(m.parent_url, 'v=', 2), '&', 1)
+                LEFT JOIN mention_state s ON s.mention_id = m.id
+                WHERE l.type IN ('complaint', 'question', 'purchase_intent')
+                  AND m.brand_id = ANY(%s)
+                ORDER BY m.posted_at DESC
+                LIMIT 1000
+                """,
+                (focus,),
+            )
+            rows = cur.fetchall()
+        conn.commit()
+    now = datetime.now().astimezone()
+    mentions = []
+    for (mid, brand_id, platform, surface, url, parent_url, title, author, text, posted_at,
+         replied, reply_text, proof, kind, urgency, is_buyer,
+         status, snoozed_until, changed_at, is_feedback, draft) in rows:
+        waited = max(0.0, (now - posted_at).total_seconds() / 3600)
+        priority = _URGENCY_POINTS.get(urgency or "low", 20) + (15 if is_buyer else 0) + min(waited / 24, 10)
+        mentions.append({
+            "id": str(mid),
+            "brand_id": brand_id,
+            "platform": platform,
+            "surface": "owned" if surface == "own" else "earned",
+            "url": url,
+            "parent_url": parent_url,
+            "parent_author": None,
+            "parent_title": title,
+            "author": author or "unknown",
+            "text": text,
+            "posted_at": posted_at.isoformat(),
+            "like_count": 0,
+            "view_count": 0,
+            "brand_replied": replied,
+            "reply_text": reply_text,
+            "proof": "ai_reported" if proof == "grok_bot" else (proof or "none"),
+            "type": kind,
+            "urgency": urgency or "low",
+            "needs_response": replied is not True,
+            "priority": round(priority, 1),
+            "theme_id": None,
+            "draft": draft,
+            "status": status or ("handled" if replied else "inbox"),
+            "snoozed_until": snoozed_until.isoformat() if snoozed_until else None,
+            "status_changed_at": changed_at.isoformat() if changed_at else None,
+            "is_feedback": bool(is_feedback),
+        })
+    return {"brands": brands, "themes": [], "mentions": mentions}
+
+
+def _desk_id(body: dict) -> int:
+    try:
+        return int(str(body.get("id", "")))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="bad id")
+
+
+@app.post("/api/desk/status")
+async def desk_status(request: Request) -> dict:
+    body = await request.json()
+    mention_id = _desk_id(body)
+    status = body.get("status")
+    if status not in DESK_STATUSES:
+        raise HTTPException(status_code=400, detail="bad status")
+    snoozed_until = body.get("snoozed_until") if status == "snoozed" else None
+    is_feedback = body.get("is_feedback")
+    with _lock:
+        conn = db()
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO mention_state (mention_id, status, snoozed_until, status_changed_at, is_feedback)
+                VALUES (%s, %s, %s, now(), COALESCE(%s, false))
+                ON CONFLICT (mention_id) DO UPDATE SET
+                  status = EXCLUDED.status,
+                  snoozed_until = EXCLUDED.snoozed_until,
+                  status_changed_at = now(),
+                  is_feedback = COALESCE(%s, mention_state.is_feedback)
+                """,
+                (mention_id, status, snoozed_until, is_feedback, is_feedback),
+            )
+        conn.commit()
+    return {"ok": True}
+
+
+@app.post("/api/desk/draft")
+async def desk_draft(request: Request) -> dict:
+    body = await request.json()
+    mention_id = _desk_id(body)
+    draft = str(body.get("draft", ""))[:5000]
+    with _lock:
+        conn = db()
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO mention_state (mention_id, draft) VALUES (%s, %s)
+                ON CONFLICT (mention_id) DO UPDATE SET draft = EXCLUDED.draft
+                """,
+                (mention_id, draft),
+            )
+        conn.commit()
+    return {"ok": True}
 
 
 @app.get("/api/public")

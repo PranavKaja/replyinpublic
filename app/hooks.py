@@ -26,6 +26,16 @@ MIGRATIONS = [
       WHERE case_id IS NOT NULL
     """,
     """
+    CREATE TABLE IF NOT EXISTS mention_state (
+      mention_id bigint PRIMARY KEY,
+      status text NOT NULL DEFAULT 'inbox',
+      snoozed_until timestamptz,
+      status_changed_at timestamptz,
+      is_feedback boolean NOT NULL DEFAULT false,
+      draft text
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS reply_drafts (
       mention_id bigint NOT NULL,
       posted_at timestamptz NOT NULL,
