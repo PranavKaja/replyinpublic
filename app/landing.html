@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ReplyInPublic</title>
+  <meta name="description" content="ReplyInPublic collects public comments your brand has not answered and drafts a reply from your own support documents. A person approves it before it is sent.">
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #14211c;
+      --muted: #5c675f;
+      --line: #d9e0da;
+      --paper: #f6f7f4;
+      --card: #ffffff;
+      --green: #0f6e56;
+      --green-2: #e7f4ef;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 "Segoe UI", system-ui, sans-serif; }
+    a { color: inherit; }
+    header, section, footer { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+    .nav { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; }
+    .mark { font-weight: 650; letter-spacing: -0.03em; }
+    .nav a.cta, .hero a.cta, .band a.cta {
+      display: inline-block; background: var(--ink); color: #fff; text-decoration: none;
+      padding: 10px 16px; border-radius: 8px; font-size: 14px;
+    }
+    .nav .links { display: flex; gap: 18px; align-items: center; font-size: 14px; }
+    .nav .links a { text-decoration: none; color: var(--muted); }
+    .hero { padding: 28px 0 12px; }
+    h1 { font-size: clamp(36px, 5vw, 56px); line-height: 1.05; letter-spacing: -0.04em; margin: 0 0 16px; font-weight: 640; max-width: 16ch; }
+    .lede { font-size: 18px; color: var(--muted); max-width: 42rem; margin: 0 0 22px; }
+    .hero-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .ghost { color: var(--ink); text-decoration: none; font-size: 14px; border-bottom: 1px solid var(--line); }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 36px 0; }
+    .stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+    .stat b { display: block; font-size: 26px; letter-spacing: -0.03em; }
+    .stat span { color: var(--muted); font-size: 13px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 10px 0 48px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+    .card h2 { margin: 0 0 8px; font-size: 18px; }
+    .card p { margin: 0; color: var(--muted); }
+    .step { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--green); margin-bottom: 8px; }
+    h3 { font-size: 28px; letter-spacing: -0.03em; margin: 0 0 8px; }
+    .split { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 28px; align-items: start; margin-bottom: 56px; }
+    ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+    .band { background: var(--ink); color: #f4f7f5; border-radius: 16px; padding: 28px; margin-bottom: 40px; }
+    .band p { color: #c5d0ca; max-width: 40rem; }
+    footer { padding-bottom: 36px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 800px) {
+      .stats, .grid, .split { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="nav">
+      <div class="mark">ReplyInPublic</div>
+      <div class="links">
+        <a href="#product">Product</a>
+        <a href="/app">Sign in to workspace</a>
+        <a class="cta" href="/app#start">Start a workspace</a>
+      </div>
+    </div>
+    <div class="hero">
+      <h1>The public comments your brand has not answered.</h1>
+      <p class="lede">ReplyInPublic watches YouTube, Instagram, TikTok, X, and Reddit, drops the noise, and drafts a reply from your own warranty and FAQ pages. A person on your team approves it before anything is sent.</p>
+      <div class="hero-actions">
+        <a class="cta" href="/app">Open the workspace</a>
+        <a class="ghost" href="#product">See how a case moves</a>
+      </div>
+    </div>
+    <div class="stats" id="stats"></div>
+  </header>
+  <section id="product">
+    <div class="grid">
+      <article class="card">
+        <div class="step">01 Collect</div>
+        <h2>One inbox for every public surface</h2>
+        <p>Brand posts and posts that never tag you. Each comment gets a case id, a platform, and a record of whether the brand already replied.</p>
+      </article>
+      <article class="card">
+        <div class="step">02 Sort</div>
+        <h2>Complaints, questions, and buyers first</h2>
+        <p>Noise stays out of the queue. The workspace ranks what a support person should open, not the raw comment count.</p>
+      </article>
+      <article class="card">
+        <div class="step">03 Reply</div>
+        <h2>Drafts that stay inside your documents</h2>
+        <p>The suggested reply cites the public page it came from. If the pages do not answer the customer, the draft says to send it to your support contact.</p>
+      </article>
+    </div>
+    <div class="split">
+      <div>
+        <h3>A workspace, not a slide.</h3>
+        <p class="lede">The kitchen brands running now are a live workspace: cases, drafts, a 48 hour reply timer, and a queue. Connecting a brand's own posting account is the next step. Until that connection is on, an approved draft waits for a person to send it.</p>
+        <ul>
+          <li>Inbox filtered by brand and by complaint, question, or purchase intent.</li>
+          <li>Case file with the source link, the support contact, and the due time.</li>
+          <li>Approve, edit, or reject. Approved text lands in the publish queue.</li>
+          <li>Sources show which accounts are connected and which are still waiting.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="step">Live workspace</div>
+        <h2>Five brands in the current desk</h2>
+        <p>KitchenAid, Nespresso, Breville, Instant Pot, and Ninja. Other brands in the catalog stay on the list and can be opened from the same console.</p>
+      </div>
+    </div>
+    <div class="band">
+      <h3>Put your brand on the desk.</h3>
+      <p>Tell us the company, the surfaces you care about, and a public warranty or FAQ link. We open the workspace with your documents behind the drafts.</p>
+      <a class="cta" href="/app#start">Request a workspace</a>
+    </div>
+  </section>
+  <footer>ReplyInPublic. Public support, drafted from the brand's own documents, sent only after a person approves.</footer>
+  <script>
+    fetch("/api/public").then((r) => r.json()).then((data) => {
+      const box = document.getElementById("stats");
+      const items = [
+        [String(data.mentions || 0), "public comments stored"],
+        [String(data.actionable || 0), "complaints, questions, and buyers"],
+        [String((data.platforms || []).length), "platforms in the inbox"],
+        [String(data.kb_brands || 0), "brands with support pages loaded"],
+      ];
+      for (const [value, label] of items) {
+        const card = document.createElement("div");
+        card.className = "stat";
+        const b = document.createElement("b");
+        b.textContent = Number(value).toLocaleString();
+        const s = document.createElement("span");
+        s.textContent = label;
+        card.append(b, s);
+        box.appendChild(card);
+      }
+    }).catch(() => {});
+  </script>
+</body>
+</html>

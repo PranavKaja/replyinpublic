@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Workspace · ReplyInPublic</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #14211c;
+      --muted: #5d675f;
+      --line: #e1e6e2;
+      --paper: #f3f5f2;
+      --card: #fff;
+      --side: #121a16;
+      --side-2: #1c2822;
+      --green: #0f6e56;
+      --red: #9c3418;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; height: 100vh; display: grid; grid-template-columns: 220px 1fr; background: var(--paper); color: var(--ink); font: 14px/1.45 "Segoe UI", system-ui, sans-serif; }
+    aside { background: var(--side); color: #e7eee9; display: flex; flex-direction: column; padding: 18px 12px; }
+    .mark { font-weight: 650; letter-spacing: -0.03em; padding: 4px 8px 16px; }
+    .mark a { color: inherit; text-decoration: none; }
+    aside button {
+      display: block; width: 100%; text-align: left; background: transparent; color: #c9d5ce;
+      border: 0; border-radius: 8px; padding: 9px 10px; margin: 2px 0; cursor: pointer; font: inherit;
+    }
+    aside button.on { background: var(--side-2); color: #fff; }
+    aside .foot { margin-top: auto; padding: 10px; color: #8ea095; font-size: 12px; }
+    main { display: grid; grid-template-rows: auto 1fr; min-width: 0; }
+    .top { display: flex; gap: 10px; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); background: var(--card); }
+    .top h1 { margin: 0; font-size: 16px; font-weight: 650; }
+    select, input, textarea { font: inherit; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: #fff; color: var(--ink); }
+    .workspace { min-height: 0; }
+    .split { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; height: calc(100vh - 57px); }
+    .list, .detail, .panel { overflow: auto; }
+    .list { border-right: 1px solid var(--line); background: #fbfcfb; }
+    .row { padding: 12px 14px; border-bottom: 1px solid var(--line); cursor: pointer; }
+    .row.on { background: #e7f4ef; }
+    .meta { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+    .clip { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .detail { padding: 18px 22px 40px; }
+    .pill { display: inline-block; border-radius: 999px; padding: 2px 8px; background: #eef2ef; font-size: 12px; margin-right: 6px; }
+    .pill.bad { background: #fde8e2; color: var(--red); }
+    .pill.ok { background: #e7f4ef; color: var(--green); }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    button.act { border: 0; background: var(--ink); color: #fff; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+    button.line { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+    textarea { width: 100%; min-height: 90px; margin-top: 8px; }
+    .passages { margin-top: 14px; }
+    .passages article { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px; color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; background: var(--card); }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    .panel { padding: 18px 22px 40px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; max-width: 560px; }
+    label { display: block; margin: 10px 0 4px; color: var(--muted); font-size: 12px; }
+    .hidden { display: none; }
+    a.src { color: var(--green); }
+    @media (max-width: 900px) {
+      body { grid-template-columns: 1fr; height: auto; }
+      aside { flex-direction: row; flex-wrap: wrap; }
+      .split { grid-template-columns: 1fr; height: auto; }
+    }
+  </style>
+</head>
+<body>
+  <aside>
+    <div class="mark"><a href="/">ReplyInPublic</a></div>
+    <button class="on" data-view="inbox">Inbox</button>
+    <button data-view="queue">Publish queue</button>
+    <button data-view="brands">Brands</button>
+    <button data-view="sources">Sources</button>
+    <button data-view="start">Start a workspace</button>
+    <div class="foot">Drafts stay in your documents. A person approves before send.</div>
+  </aside>
+  <main>
+    <div class="top">
+      <h1 id="title">Inbox</h1>
+      <select id="brand"></select>
+      <select id="kind">
+        <option value="">Complaints, questions, buyers, praise</option>
+        <option value="complaint">Complaints</option>
+        <option value="question">Questions</option>
+        <option value="purchase_intent">Purchase intent</option>
+        <option value="praise">Praise</option>
+      </select>
+    </div>
+    <div class="workspace">
+      <section id="view-inbox" class="split">
+        <div class="list" id="list"></div>
+        <div class="detail" id="detail"><p class="meta">Select a case.</p></div>
+      </section>
+      <section id="view-queue" class="panel hidden"></section>
+      <section id="view-brands" class="panel hidden"></section>
+      <section id="view-sources" class="panel hidden"></section>
+      <section id="view-start" class="panel hidden">
+        <div class="card">
+          <h2>Open a workspace</h2>
+          <p class="meta">We create the desk, attach the public support pages you send, and leave posting to a person until the brand account is connected.</p>
+          <form id="start-form">
+            <label>Company</label>
+            <input name="company_name" required>
+            <label>Your name</label>
+            <input name="contact_name" required>
+            <label>Work email</label>
+            <input name="contact_email" type="email" required>
+            <label>Brand already in the catalog</label>
+            <select name="brand_slug" id="start-brand"></select>
+            <label>Public warranty or FAQ URL</label>
+            <input name="kb_url" placeholder="https://">
+            <label>Platforms</label>
+            <input name="platforms" value="youtube, instagram, tiktok, x, reddit">
+            <div class="actions"><button class="act" type="submit">Request workspace</button></div>
+          </form>
+          <p id="start-note" class="meta"></p>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script>
+    const params = new URLSearchParams(location.search);
+    if (params.get("token")) sessionStorage.setItem("rip_copilot_token", params.get("token"));
+    const token = () => sessionStorage.getItem("rip_copilot_token") || "";
+    let comments = [];
+    let selected = null;
+    let workspace = { brands: [], connections: [] };
+
+    function esc(s) { return String(s || ""); }
+
+    function show(view) {
+      document.querySelectorAll("aside button").forEach((b) => b.classList.toggle("on", b.dataset.view === view));
+      ["inbox", "queue", "brands", "sources", "start"].forEach((name) => {
+        document.getElementById("view-" + name).classList.toggle("hidden", name !== view);
+      });
+      document.getElementById("title").textContent = {
+        inbox: "Inbox", queue: "Publish queue", brands: "Brands", sources: "Sources", start: "Start a workspace"
+      }[view];
+      document.getElementById("brand").classList.toggle("hidden", view !== "inbox");
+      document.getElementById("kind").classList.toggle("hidden", view !== "inbox");
+      if (view === "queue") loadQueue();
+      if (view === "brands") renderBrands();
+      if (view === "sources") renderSources();
+    }
+    document.querySelectorAll("aside button").forEach((b) => b.onclick = () => show(b.dataset.view));
+
+    async function loadInbox() {
+      const query = new URLSearchParams({
+        brand: document.getElementById("brand").value,
+        unanswered: "1",
+        kind: document.getElementById("kind").value,
+      });
+      const data = await fetch("/api/preview?" + query).then((r) => r.json());
+      const brandSelect = document.getElementById("brand");
+      if (!brandSelect.options.length) {
+        const all = document.createElement("option");
+        all.value = "";
+        all.textContent = "Focus brands";
+        brandSelect.appendChild(all);
+        for (const brand of data.brands) {
+          const opt = document.createElement("option");
+          opt.value = brand.id;
+          opt.textContent = brand.name + " · " + brand.unanswered_14d;
+          brandSelect.appendChild(opt);
+        }
+      }
+      comments = data.comments || [];
+      const list = document.getElementById("list");
+      list.replaceChildren();
+      if (!comments.length) {
+        const empty = document.createElement("p");
+        empty.className = "meta";
+        empty.style.padding = "14px";
+        empty.textContent = "No open cases in this filter.";
+        list.appendChild(empty);
+      }
+      for (const comment of comments) {
+        const row = document.createElement("div");
+        row.className = "row" + (selected && selected.id === comment.id ? " on" : "");
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = [comment.case_id, comment.brand, comment.platform, comment.type || "unlabeled"].filter(Boolean).join(" · ");
+        const clip = document.createElement("div");
+        clip.className = "clip";
+        clip.textContent = comment.text;
+        row.append(meta, clip);
+        row.onclick = () => openCase(comment);
+        list.appendChild(row);
+      }
+    }
+
+    function replyState(comment) {
+      if (comment.brand_replied === true) return ["Brand replied", "ok"];
+      if (comment.brand_replied === false) return ["No brand reply", "bad"];
+      return ["Reply not checked", ""];
+    }
+
+    function openCase(comment) {
+      selected = comment;
+      loadInbox();
+      const pane = document.getElementById("detail");
+      pane.replaceChildren();
+      const [state, cls] = replyState(comment);
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.innerHTML = "";
+      const pills = document.createElement("div");
+      for (const [text, klass] of [[comment.case_id, ""], [state, cls], [comment.platform, ""], [comment.type || "unlabeled", ""]]) {
+        if (!text) continue;
+        const pill = document.createElement("span");
+        pill.className = "pill" + (klass ? " " + klass : "");
+        pill.textContent = text;
+        pills.appendChild(pill);
+      }
+      const body = document.createElement("p");
+      body.textContent = comment.text;
+      const link = document.createElement("p");
+      const a = document.createElement("a");
+      a.className = "src";
+      a.href = comment.url;
+      a.target = "_blank";
+      a.rel = "noreferrer";
+      a.textContent = "Open the original post";
+      link.appendChild(a);
+      const who = document.createElement("p");
+      who.className = "meta";
+      who.textContent = (comment.author || "Unknown author") + " · " + (comment.posted_at || "").replace("T", " ").slice(0, 16)
+        + (comment.reply_due_at ? " · due " + comment.reply_due_at.replace("T", " ").slice(0, 16) : "")
+        + (comment.support_contact ? " · " + comment.support_contact : "");
+      const draftBtn = document.createElement("button");
+      draftBtn.className = "act";
+      draftBtn.textContent = "Draft from support pages";
+      draftBtn.onclick = () => draft(comment);
+      pane.append(pills, who, body, link, draftBtn);
+      const box = document.createElement("div");
+      box.id = "draft-box";
+      pane.appendChild(box);
+      if (comment.draft_text) {
+        box.appendChild(draftEditor(comment.draft_text, comment));
+      }
+    }
+
+    function draftEditor(text, comment) {
+      const wrap = document.createElement("div");
+      const label = document.createElement("p");
+      label.className = "meta";
+      label.textContent = comment.draft_status ? "Draft status: " + comment.draft_status : "Suggested reply";
+      const area = document.createElement("textarea");
+      area.value = text;
+      const actions = document.createElement("div");
+      actions.className = "actions";
+      for (const [name, action] of [["Approve", "approve"], ["Save edit", "edit"], ["Reject", "reject"]]) {
+        const btn = document.createElement("button");
+        btn.className = "act" + (action === "approve" ? "" : " line");
+        btn.textContent = name;
+        btn.onclick = () => saveDraft(comment, action, area.value);
+        actions.appendChild(btn);
+      }
+      wrap.append(label, area, actions);
+      return wrap;
+    }
+
+    async function draft(comment) {
+      const box = document.getElementById("draft-box");
+      box.textContent = "Reading the support pages.";
+      const query = new URLSearchParams({ mention_id: comment.id, posted_at: comment.posted_at });
+      if (token()) query.set("token", token());
+      const data = await fetch("/api/copilot?" + query).then((r) => r.json());
+      box.replaceChildren();
+      box.appendChild(draftEditor(data.reply || "", comment));
+      const passages = document.createElement("div");
+      passages.className = "passages";
+      for (const passage of data.passages || []) {
+        const block = document.createElement("article");
+        const p = document.createElement("p");
+        p.textContent = (passage.text || "").slice(0, 420);
+        const a = document.createElement("a");
+        a.className = "src";
+        a.href = passage.source_url;
+        a.target = "_blank";
+        a.rel = "noreferrer";
+        a.textContent = passage.source_url;
+        block.append(p, a);
+        passages.appendChild(block);
+      }
+      box.appendChild(passages);
+    }
+
+    async function saveDraft(comment, action, text) {
+      const query = new URLSearchParams();
+      if (token()) query.set("token", token());
+      const response = await fetch("/api/draft?" + query, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mention_id: comment.id, posted_at: comment.posted_at, action, final_text: text }),
+      });
+      const note = document.createElement("p");
+      note.className = "meta";
+      note.textContent = response.ok ? "Saved. Approved drafts appear in the publish queue." : "Could not save this draft. Open the workspace with the copilot token.";
+      document.getElementById("draft-box").appendChild(note);
+      if (response.ok && action !== "reject") show("queue");
+    }
+
+    async function loadQueue() {
+      const data = await fetch("/api/console/summary").then((r) => r.json());
+      const pane = document.getElementById("view-queue");
+      pane.replaceChildren();
+      const intro = document.createElement("p");
+      intro.className = "meta";
+      intro.textContent = "Approved replies wait here until a person sends them. Account connection for automatic posting is not on yet.";
+      pane.appendChild(intro);
+      const table = document.createElement("table");
+      table.innerHTML = "<thead><tr><th>Case</th><th>Channel</th><th>Reply</th><th>Status</th><th></th></tr></thead>";
+      const body = document.createElement("tbody");
+      for (const row of data.publish_queue || []) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        const copy = document.createElement("button");
+        copy.className = "act line";
+        copy.textContent = "Copy";
+        copy.onclick = () => navigator.clipboard.writeText(row.body);
+        const mark = document.createElement("button");
+        mark.className = "act line";
+        mark.textContent = "Mark sent";
+        mark.onclick = async () => { await fetch("/api/publish/" + row.id + "/demo", { method: "POST" }); loadQueue(); };
+        td.append(copy, document.createTextNode(" "), mark);
+        for (const value of [row.case_id || row.id, row.channel, (row.body || "").slice(0, 180), row.status]) {
+          const cell = document.createElement("td");
+          cell.textContent = value;
+          tr.appendChild(cell);
+        }
+        tr.appendChild(td);
+        body.appendChild(tr);
+      }
+      table.appendChild(body);
+      pane.appendChild(table);
+    }
+
+    function renderBrands() {
+      const pane = document.getElementById("view-brands");
+      pane.replaceChildren();
+      const table = document.createElement("table");
+      table.innerHTML = "<thead><tr><th>Brand</th><th>Support contact</th><th>Reply window</th><th>Support pages</th></tr></thead>";
+      const body = document.createElement("tbody");
+      for (const brand of workspace.brands) {
+        const tr = document.createElement("tr");
+        const pages = brand.kb_chunks ? brand.kb_chunks + " passages" : "None loaded";
+        for (const value of [brand.name, brand.support_contact || "Not set", brand.reply_sla_hours + " hours", pages]) {
+          const cell = document.createElement("td");
+          cell.textContent = value;
+          tr.appendChild(cell);
+        }
+        body.appendChild(tr);
+      }
+      table.appendChild(body);
+      pane.appendChild(table);
+    }
+
+    function renderSources() {
+      const pane = document.getElementById("view-sources");
+      pane.replaceChildren();
+      const note = document.createElement("p");
+      note.className = "meta";
+      note.textContent = "Listening is on for the catalog. Posting stays manual until each brand account is connected.";
+      pane.appendChild(note);
+      const table = document.createElement("table");
+      table.innerHTML = "<thead><tr><th>Brand</th><th>Platform</th><th>Status</th><th>Note</th></tr></thead>";
+      const body = document.createElement("tbody");
+      for (const row of workspace.connections) {
+        const tr = document.createElement("tr");
+        for (const value of [row.brand, row.platform, row.status, row.note || ""]) {
+          const cell = document.createElement("td");
+          cell.textContent = value;
+          tr.appendChild(cell);
+        }
+        body.appendChild(tr);
+      }
+      table.appendChild(body);
+      pane.appendChild(table);
+      const ingest = document.createElement("div");
+      ingest.className = "card";
+      ingest.style.marginTop = "16px";
+      ingest.innerHTML = "<h2>Add posts</h2><p class='meta'>Paste JSON lines from a research pass. Duplicates are dropped.</p>";
+      const area = document.createElement("textarea");
+      area.placeholder = '{"brand_id":"ninja","platform":"x","text":"...","url":"https://x.com/...","posted_at":"2026-11-14T12:00:00Z"}';
+      const btn = document.createElement("button");
+      btn.className = "act";
+      btn.textContent = "Add to inbox";
+      const status = document.createElement("p");
+      status.className = "meta";
+      btn.onclick = async () => {
+        const res = await fetch("/api/ingest?token=" + encodeURIComponent(token()), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ raw: area.value }),
+        });
+        const data = await res.json();
+        status.textContent = res.ok ? "Added " + data.added + ". Duplicates " + data.duplicates + "." : (data.detail || "Could not add posts");
+      };
+      ingest.append(area, document.createElement("br"), btn, status);
+      pane.appendChild(ingest);
+    }
+
+    document.getElementById("brand").onchange = loadInbox;
+    document.getElementById("kind").onchange = loadInbox;
+    document.getElementById("start-form").onsubmit = async (event) => {
+      event.preventDefault();
+      const payload = Object.fromEntries(new FormData(event.target).entries());
+      payload.platforms = String(payload.platforms || "").split(/[,\s]+/).filter(Boolean);
+      const res = await fetch("/api/onboard", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const data = await res.json();
+      document.getElementById("start-note").textContent = res.ok ? "Request " + data.id + " is in. We will use " + payload.contact_email + "." : (data.detail || "Could not save");
+    };
+
+    async function boot() {
+      workspace = await fetch("/api/workspace").then((r) => r.json());
+      const select = document.getElementById("start-brand");
+      const blank = document.createElement("option");
+      blank.value = "";
+      blank.textContent = "New brand";
+      select.appendChild(blank);
+      for (const brand of workspace.brands || []) {
+        const opt = document.createElement("option");
+        opt.value = brand.id;
+        opt.textContent = brand.name;
+        select.appendChild(opt);
+      }
+      await loadInbox();
+      if (location.hash === "#start") show("start");
+      setInterval(loadInbox, 20000);
+    }
+    boot();
+  </script>
+</body>
+</html>

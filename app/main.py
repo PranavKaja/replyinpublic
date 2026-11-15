@@ -27,12 +27,84 @@ def db():
 
 @app.get("/", response_class=HTMLResponse)
 def home() -> str:
-    return (ROOT / "app" / "preview.html").read_text(encoding="utf-8")
+    return (ROOT / "app" / "landing.html").read_text(encoding="utf-8")
+
+
+@app.get("/app", response_class=HTMLResponse)
+def workspace() -> str:
+    return (ROOT / "app" / "crm.html").read_text(encoding="utf-8")
 
 
 @app.get("/console", response_class=HTMLResponse)
 def console() -> str:
-    return (ROOT / "app" / "console.html").read_text(encoding="utf-8")
+    return (ROOT / "app" / "crm.html").read_text(encoding="utf-8")
+
+
+@app.get("/api/public")
+def public_stats() -> dict:
+    with db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT platform, count(*) FROM mentions GROUP BY 1 ORDER BY 2 DESC")
+            platforms = [{"platform": name, "count": count} for name, count in cur.fetchall()]
+            cur.execute("SELECT count(*) FROM mentions")
+            total = cur.fetchone()[0]
+            cur.execute(
+                """
+                SELECT count(*) FROM mentions m
+                LEFT JOIN labels l ON l.mention_id = m.id AND l.posted_at = m.posted_at
+                WHERE COALESCE(l.relevant, true) IS TRUE
+                  AND l.type IN ('complaint', 'question', 'purchase_intent')
+                """
+            )
+            actionable = cur.fetchone()[0]
+            cur.execute("SELECT count(DISTINCT brand_id) FROM kb_chunks")
+            kb_brands = cur.fetchone()[0]
+    return {
+        "mentions": total,
+        "actionable": actionable,
+        "kb_brands": kb_brands,
+        "platforms": platforms,
+    }
+
+
+@app.get("/api/workspace")
+def workspace_data() -> dict:
+    with db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT b.id, b.name, b.support_contact, b.reply_sla_hours,
+                       COALESCE(k.chunks, 0)::integer
+                FROM brands b
+                LEFT JOIN (
+                  SELECT brand_id, count(*) AS chunks FROM kb_chunks GROUP BY brand_id
+                ) k ON k.brand_id = b.id
+                ORDER BY b.name
+                """
+            )
+            brands = [
+                {
+                    "id": brand_id,
+                    "name": name,
+                    "support_contact": contact,
+                    "reply_sla_hours": sla,
+                    "kb_chunks": chunks,
+                }
+                for brand_id, name, contact, sla, chunks in cur.fetchall()
+            ]
+            cur.execute(
+                """
+                SELECT b.name, c.platform, c.status, c.note
+                FROM brand_connections c
+                JOIN brands b ON b.id = c.brand_id
+                ORDER BY b.name, c.platform
+                """
+            )
+            connections = [
+                {"brand": name, "platform": platform, "status": status, "note": note}
+                for name, platform, status, note in cur.fetchall()
+            ]
+    return {"brands": brands, "connections": connections}
 
 
 @app.get("/api/console/summary")
@@ -174,12 +246,12 @@ def publish_demo(queue_id: int) -> dict:
 
 
 @app.get("/api/preview")
-def preview(brand: str = "", unanswered: int = 1) -> dict:
+def preview(brand: str = "", unanswered: int = 1, kind: str = "") -> dict:
     with _lock:
-        return _preview(brand, unanswered)
+        return _preview(brand, unanswered, kind)
 
 
-def _preview(brand: str, unanswered: int) -> dict:
+def _preview(brand: str, unanswered: int, kind: str = "") -> dict:
     focus = json.loads((ROOT / "focus.json").read_text(encoding="utf-8"))["brands"]
     with db() as conn:
         with conn.cursor() as cur:
@@ -260,6 +332,9 @@ def _preview(brand: str, unanswered: int) -> dict:
                 params.append(focus)
             if unanswered:
                 filters.append("m.brand_replied IS NOT TRUE")
+            if kind in {"question", "complaint", "praise", "purchase_intent", "noise"}:
+                filters.append("l.type = %s")
+                params.append(kind)
             params.append(80)
             cur.execute(
                 f"""
