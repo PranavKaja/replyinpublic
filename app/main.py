@@ -246,12 +246,12 @@ def publish_demo(queue_id: int) -> dict:
 
 
 @app.get("/api/preview")
-def preview(brand: str = "", unanswered: int = 1, kind: str = "") -> dict:
+def preview(brand: str = "", unanswered: int = 1, kind: str = "", actionable: int = 0) -> dict:
     with _lock:
-        return _preview(brand, unanswered, kind)
+        return _preview(brand, unanswered, kind, actionable)
 
 
-def _preview(brand: str, unanswered: int, kind: str = "") -> dict:
+def _preview(brand: str, unanswered: int, kind: str = "", actionable: int = 0) -> dict:
     focus = json.loads((ROOT / "focus.json").read_text(encoding="utf-8"))["brands"]
     with db() as conn:
         with conn.cursor() as cur:
@@ -332,6 +332,9 @@ def _preview(brand: str, unanswered: int, kind: str = "") -> dict:
                 params.append(focus)
             if unanswered:
                 filters.append("m.brand_replied IS NOT TRUE")
+            if actionable:
+                filters.append("l.type = ANY(%s)")
+                params.append(["question", "complaint", "purchase_intent"])
             if kind in {"question", "complaint", "praise", "purchase_intent", "noise"}:
                 filters.append("l.type = %s")
                 params.append(kind)

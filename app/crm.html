@@ -92,6 +92,7 @@ th { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: 
 textarea.draft { min-height: 90px; }
 .toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--fg); color: var(--bg); border-radius: 10px; padding: 8px 14px; opacity: 0; pointer-events: none; transition: opacity 0.15s; }
 .toast.on { opacity: 1; }
+@media (min-width: 861px) { .back { display: none; } }
 @media (max-width: 860px) {
   .side { display: none; }
   .list { width: 100%; }
@@ -142,12 +143,11 @@ textarea.draft { min-height: 90px; }
   const rel = m => { const h = Math.floor(ageH(m)); return h < 1 ? "just now" : h < 48 ? h + "h ago" : Math.floor(h / 24) + "d ago"; };
   const surface = m => m.surface === "own" ? "owned" : "earned";
   const toast = t => { const el = document.getElementById("toast"); el.textContent = t; el.classList.add("on"); setTimeout(() => el.classList.remove("on"), 1800); };
-  const logo = () => $("div", { class: "logo" },
-    $("svg", { viewBox: "0 0 52 40", "aria-hidden": "true" },
-      $("path", { d: "M6 9 A16 16 0 0 0 6 31", fill: "none", stroke: "currentColor", "stroke-width": "3", "stroke-linecap": "round" }),
-      $("path", { d: "M13 13.5 A10 10 0 0 0 13 26.5", fill: "none", stroke: "currentColor", "stroke-width": "3", "stroke-linecap": "round" }),
-      $("circle", { cx: "34", cy: "20", r: "14.5", fill: "none", stroke: "currentColor", "stroke-width": "5" })),
-    "ReplyInPublic");
+  const logo = () => {
+    const el = $("div", { class: "logo", text: "ReplyInPublic" });
+    el.insertAdjacentHTML("afterbegin", '<svg viewBox="0 0 52 40" aria-hidden="true"><path d="M6 9 A16 16 0 0 0 6 31" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M13 13.5 A10 10 0 0 0 13 26.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle cx="34" cy="20" r="14.5" fill="none" stroke="currentColor" stroke-width="5"/></svg>');
+    return el;
+  };
 
   function pool() {
     return messages.filter(m => {
@@ -248,7 +248,7 @@ textarea.draft { min-height: 90px; }
     if (current.draft_text) box.append(draftBox(current, current.draft_text));
     return $("section", { class: "reader" },
       $("div", { class: "scroll" }, $("div", { class: "sheet" },
-        $("button", { class: "btn", type: "button", style: "justify-self:start", onclick: () => document.getElementById("app").classList.remove("reading") }, "Back"),
+        $("button", { class: "btn back", type: "button", style: "justify-self:start", onclick: () => document.getElementById("app").classList.remove("reading") }, "Back"),
         $("div", { class: "card" },
           $("h2", { text: "Thread context" }),
           $("div", {}, $("b", { text: current.brand }), " · ", current.platform, " · ", where),
@@ -320,7 +320,7 @@ textarea.draft { min-height: 90px; }
   }
   async function load() {
     const [preview, workspace] = await Promise.all([
-      fetch("/api/preview?unanswered=0").then(r => r.json()),
+      fetch("/api/preview?unanswered=1&actionable=1").then(r => r.json()),
       fetch("/api/workspace").then(r => r.json()),
     ]);
     const kb = {};
