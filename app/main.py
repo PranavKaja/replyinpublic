@@ -463,7 +463,9 @@ def workspace_data() -> dict:
 
 
 @app.get("/api/console/summary")
-def console_summary() -> dict:
+def console_summary(request: Request, token: str = "") -> dict:
+    """Pilot signups with names and emails, and the publish queue. Team or token only."""
+    _team_or_token(request, token)
     focus = json.loads((ROOT / "focus.json").read_text(encoding="utf-8"))["brands"]
     with db() as conn:
         with conn.cursor() as cur:
