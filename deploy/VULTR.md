@@ -37,9 +37,22 @@ scp C:\Users\bpran\replyinpublic\.env root@YOUR_VULTR_IP:/etc/replyinpublic.env
 Add a copilot gate token (any long random string):
 
 ```bash
-echo 'COPILOT_TOKEN=paste-a-long-random-string' >> /etc/replyinpublic.env
+echo "COPILOT_TOKEN=$(openssl rand -hex 24)" >> /etc/replyinpublic.env
 chmod 600 /etc/replyinpublic.env
 ```
+
+Add the cookie secret and the desk sign-ins. Without `DESK_USERS`, nobody can sign in. This makes random values and prints the token and the password to save.
+
+```bash
+PW=$(openssl rand -hex 12)
+echo "SESSION_SECRET=$(openssl rand -hex 32)" >> /etc/replyinpublic.env
+echo "DESK_USERS='{\"pranav\": {\"password\": \"$PW\", \"role\": \"rip\", \"name\": \"Pranav Kaja\", \"brands\": \"*\"}}'" >> /etc/replyinpublic.env
+grep -E '^(COPILOT_TOKEN|DESK_USERS)=' /etc/replyinpublic.env
+```
+
+`DESK_USERS` is JSON. Usernames are lowercase letters, digits, `_` or `-`. A brand account goes in the same JSON, like `"nespresso": {"password": "...", "role": "brand", "name": "Nespresso team", "brands": ["nespresso"]}`. Changing a password signs that account out. Changing `SESSION_SECRET` signs everyone out.
+
+From then on, change settings by editing `/etc/replyinpublic.env` on the server. Copying the laptop `.env` over it again drops these lines unless the laptop file has them too.
 
 Run bootstrap:
 
@@ -48,9 +61,7 @@ cd /opt/replyinpublic
 bash deploy/bootstrap.sh
 ```
 
-Open the dashboard with the token once (judges can use the same link):
-
-`https://replyinpublic.us/?token=YOUR_COPILOT_TOKEN`
+Sign in at `https://replyinpublic.us/login`. Give judges or a brand their own `DESK_USERS` account, never the copilot token. The token is an admin key: it goes in an `Authorization: Bearer` header and never in a link, because links end up in the server's access log and browser history.
 
 ## 4. Schedules (installed by bootstrap)
 

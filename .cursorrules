@@ -16,8 +16,13 @@ When asked to search, verify, or scrape customer mentions from X (Twitter):
    ```
    Alternatively, POST directly over HTTPS:
    ```bash
-   curl -s -X POST "https://replyinpublic.us/api/ingest?token=0a5c17262b444c83b3cd194388294e54" -H "Content-Type: application/json" -d @your_scraped_file.json
+   curl -s -X POST "https://replyinpublic.us/api/ingest" -H "Authorization: Bearer $COPILOT_TOKEN" -H "Content-Type: application/json" -d @your_scraped_file.json
    ```
+   The same in PowerShell:
+   ```powershell
+   curl.exe -s -X POST "https://replyinpublic.us/api/ingest" -H "Authorization: Bearer $env:COPILOT_TOKEN" -H "Content-Type: application/json" -d '@your_scraped_file.json'
+   ```
+   `COPILOT_TOKEN` has to be set in the shell that runs the command. Never write its value into this file or any other committed file.
 
 3. **Confirmation:**
    The tool automatically deduplicates against Tiger Data, filters noise, triggers Gemini categorization, and updates the live dashboard at `https://replyinpublic.us`.

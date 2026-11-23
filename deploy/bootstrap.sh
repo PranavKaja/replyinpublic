@@ -31,7 +31,7 @@ git pull --ff-only
 .venv/bin/pip install -q -r requirements.txt
 
 if [[ ! -f "$ENV_FILE" ]]; then
-  echo "Create $ENV_FILE with DATABASE_URL, YOUTUBE_API_KEY, GEMINI_API_KEY, APIFY_TOKEN, ENSEMBLEDATA_API_KEY, COPILOT_TOKEN"
+  echo "Create $ENV_FILE with DATABASE_URL, YOUTUBE_API_KEY, GEMINI_API_KEY, APIFY_TOKEN, ENSEMBLEDATA_API_KEY, COPILOT_TOKEN, SESSION_SECRET, DESK_USERS (see deploy/VULTR.md)"
   cp -n .env.example "$ENV_FILE" 2>/dev/null || touch "$ENV_FILE"
   chmod 600 "$ENV_FILE"
   echo "Stopped: fill $ENV_FILE then re-run this script."

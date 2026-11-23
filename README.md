@@ -21,7 +21,9 @@ Copy `.env.example` to `.env` and set:
 - `GEMINI_API_KEY`: Google AI Studio Gemini API key (active on Tier 1 Pay-as-you-go; uses `gemini-3.5-flash` and `gemini-3.5-flash-lite`)
 - `APIFY_TOKEN`: Apify token for Instagram, TikTok, X, and Reddit scrapers
 - `ENSEMBLEDATA_API_KEY`: EnsembleData token for scheduled TikTok pulls (50 units per day)
-- `COPILOT_TOKEN`: optional on localhost; required on production so `/api/copilot` is not public
+- `COPILOT_TOKEN`: optional on localhost; required on production so `/api/copilot` is not public. Scripts send it to `/api/ingest` as `Authorization: Bearer`. Never write its value into a committed file.
+- `DESK_USERS`: the desk sign-ins, as JSON (see [deploy/VULTR.md](deploy/VULTR.md)). Without it, nobody can sign in.
+- `SESSION_SECRET`: a long random string that signs the sign-in cookie. Changing it signs everyone out.
 
 `.env` is gitignored. Do not commit it.
 

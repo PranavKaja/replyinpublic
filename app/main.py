@@ -1,9 +1,12 @@
 """Local preview of the comments already stored in Tiger."""
 
+import asyncio
 import hashlib
 import hmac
 import json
+import logging
 import os
+import re
 import threading
 import time
 import urllib.request
@@ -18,6 +21,7 @@ from app.hooks import mark_publish_demo, save_reply_draft, update_draft_status
 from app.ingest import ingest_records, parse_raw_lines
 
 app = FastAPI(title="ReplyInPublic")
+log = logging.getLogger("replyinpublic")
 _conn = None
 _lock = threading.Lock()
 
@@ -79,6 +83,8 @@ DESK_STATUSES = {"inbox", "parked", "snoozed", "handled", "dismissed", "feedback
 _URGENCY_POINTS = {"high": 60, "medium": 40, "low": 20}
 SESSION_COOKIE = "rip_session"
 SESSION_DAYS = 7
+_USERNAME = re.compile(r"[a-z0-9_-]{1,64}")
+_EXPIRES = re.compile(r"[0-9]{1,12}")
 
 
 def _focus() -> list:
@@ -88,16 +94,37 @@ def _focus() -> list:
 def _desk_users() -> dict:
     """Two kinds of account. A brand team sees its own brand. The ReplyInPublic team sees them all.
 
-    DESK_USERS in the environment replaces these, as JSON in the same shape.
+    Accounts come only from DESK_USERS in the environment, as JSON:
+    {"pranav": {"password": "...", "role": "rip", "name": "Pranav Kaja", "brands": "*"},
+     "nespresso": {"password": "...", "role": "brand", "name": "Nespresso team", "brands": ["nespresso"]}}
+    If DESK_USERS is missing or broken, nobody can sign in. Usernames are lowercase letters,
+    digits, _ or -. An account with no password, or with brands that are not "*" or a list, is skipped.
     """
     load_env()
     raw = os.environ.get("DESK_USERS", "").strip()
-    if raw:
-        return json.loads(raw)
-    return {
-        "brand": {"password": "brand", "role": "brand", "name": "Nespresso team", "brands": ["nespresso"]},
-        "pranav": {"password": "pranav", "role": "rip", "name": "Pranav Kaja", "brands": "*"},
-    }
+    if not raw:
+        return {}
+    try:
+        users = json.loads(raw)
+    except json.JSONDecodeError:
+        log.warning("DESK_USERS is not valid JSON, so nobody can sign in")
+        return {}
+    if not isinstance(users, dict):
+        log.warning("DESK_USERS must be a JSON object, so nobody can sign in")
+        return {}
+    accounts = {}
+    for name, user in users.items():
+        key = str(name).strip().lower()
+        brands = user.get("brands") if isinstance(user, dict) else None
+        if not _USERNAME.fullmatch(key) or not isinstance(user, dict):
+            log.warning("DESK_USERS account %r skipped: bad username or not an object", name)
+        elif not isinstance(user.get("password"), str) or not user["password"]:
+            log.warning("DESK_USERS account %r skipped: no password", key)
+        elif brands not in (None, "*") and not (isinstance(brands, list) and all(isinstance(b, str) for b in brands)):
+            log.warning("DESK_USERS account %r skipped: brands must be \"*\" or a list", key)
+        else:
+            accounts[key] = user
+    return accounts
 
 
 def _session_secret() -> bytes:
@@ -106,9 +133,11 @@ def _session_secret() -> bytes:
     return hashlib.sha256(seed.encode()).digest()
 
 
-def _sign(username: str, expires: int) -> str:
+def _sign(username: str, expires: int, password: str) -> str:
+    """The password is part of the key, so changing a password signs that account out everywhere."""
     body = f"{username}.{expires}"
-    return body + "." + hmac.new(_session_secret(), body.encode(), hashlib.sha256).hexdigest()
+    key = _session_secret() + hashlib.sha256(password.encode()).digest()
+    return body + "." + hmac.new(key, body.encode(), hashlib.sha256).hexdigest()
 
 
 def _session(request: Request) -> dict:
@@ -119,9 +148,11 @@ def _session(request: Request) -> dict:
     user = _desk_users().get(username)
     if (
         not user
-        or not expires.isdigit()
+        or not _EXPIRES.fullmatch(expires)
         or int(expires) < time.time()
-        or not hmac.compare_digest(token, _sign(username, int(expires)))
+        or not hmac.compare_digest(
+            token.encode("utf-8", "replace"), _sign(username, int(expires), user["password"]).encode()
+        )
     ):
         raise HTTPException(status_code=401, detail="sign in")
     focus = _focus()
@@ -131,19 +162,24 @@ def _session(request: Request) -> dict:
 
 @app.post("/api/desk/login")
 async def desk_login(request: Request) -> JSONResponse:
-    body = await request.json()
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
     username = str(body.get("username", "")).strip().lower()
     password = str(body.get("password", ""))
     user = _desk_users().get(username)
     expected = (user or {}).get("password", "")
-    if not user or not hmac.compare_digest(password.encode(), str(expected).encode()):
-        time.sleep(0.4)
+    if not user or not hmac.compare_digest(password.encode("utf-8", "replace"), str(expected).encode()):
+        await asyncio.sleep(0.4)  # time.sleep here would stall every other request
         raise HTTPException(status_code=401, detail="wrong username or password")
     expires = int(time.time()) + SESSION_DAYS * 86400
     response = JSONResponse({"ok": True})
     response.set_cookie(
         SESSION_COOKIE,
-        _sign(username, expires),
+        _sign(username, expires, expected),
         max_age=SESSION_DAYS * 86400,
         httponly=True,
         samesite="lax",
@@ -511,7 +547,8 @@ def console_summary() -> dict:
 
 
 @app.post("/api/onboard")
-async def api_onboard(request: Request) -> dict:
+async def api_onboard(request: Request, token: str = "") -> dict:
+    _team_or_token(request, token)
     try:
         payload = await request.json()
     except Exception:
@@ -556,7 +593,8 @@ async def api_onboard(request: Request) -> dict:
 
 
 @app.post("/api/publish/{queue_id}/demo")
-def publish_demo(queue_id: int) -> dict:
+def publish_demo(queue_id: int, request: Request, token: str = "") -> dict:
+    _team_or_token(request, token)
     with db() as conn:
         ok = mark_publish_demo(conn, queue_id)
     if not ok:
@@ -760,21 +798,44 @@ def _embed(key: str, text: str) -> list[float]:
     return payload["embedding"]["values"]
 
 
-def _copilot_allowed(token: str) -> bool:
+def _request_token(request: Request, token: str = "") -> str:
+    """The token from an Authorization: Bearer header, then ?token=, then an X-Token header."""
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.lower().startswith("bearer "):
+        token = auth_header[7:].strip()
+    return token or request.headers.get("x-token", "")
+
+
+def _token_matches(token: str) -> bool:
+    """True only when COPILOT_TOKEN is set and the token equals it."""
     load_env()
     required = os.environ.get("COPILOT_TOKEN", "").strip()
-    if not required:
+    return bool(required) and hmac.compare_digest(token.strip().encode(), required.encode())
+
+
+def _copilot_allowed(token: str) -> bool:
+    """With no COPILOT_TOKEN set, as on localhost, the copilot stays open."""
+    load_env()
+    if not os.environ.get("COPILOT_TOKEN", "").strip():
         return True
-    return token.strip() == required
+    return _token_matches(token)
+
+
+def _team_or_token(request: Request, token: str = "") -> None:
+    """Lets in the copilot token or a signed-in ReplyInPublic team account. Nothing else.
+
+    No token and no session is a 401. A brand account is a 403. Unlike the copilot,
+    a missing COPILOT_TOKEN never opens these routes.
+    """
+    if _token_matches(_request_token(request, token)):
+        return
+    if _session(request)["role"] != "rip":
+        raise HTTPException(status_code=403, detail="team only")
 
 
 @app.post("/api/ingest")
 async def api_ingest(request: Request, token: str = "") -> dict:
-    auth_header = request.headers.get("authorization", "")
-    if auth_header.lower().startswith("bearer "):
-        token = auth_header[7:].strip()
-    if not token:
-        token = request.headers.get("x-token", "")
+    token = _request_token(request, token)
     if not _copilot_allowed(token):
         raise HTTPException(status_code=401, detail="copilot token required")
 
