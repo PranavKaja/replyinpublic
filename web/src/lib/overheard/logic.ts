@@ -92,8 +92,9 @@ const VIEW_STATUS: Partial<Record<View, Status>> = {
   feedback: "feedback",
 };
 
-/** Feedback is a tag: a message can be handled (replied) and also kept as feedback. */
-export const isFeedback = (m: Mention) => m.status === "feedback" || m.is_feedback === true;
+/** Feedback is a tag: the label, the feedback status, or a handled reply kept for the brand. */
+export const isFeedback = (m: Mention) =>
+  m.type === "feedback" || m.status === "feedback" || m.is_feedback === true;
 
 export type ReplyState = "awaiting" | "overdue" | "unconfirmed" | "replied";
 export const REPLY_STATES: ReplyState[] = ["awaiting", "overdue", "unconfirmed", "replied"];
@@ -126,7 +127,7 @@ export function matches(
   if (f.view === "feedback") {
     if (!isFeedback(m)) return false;
   } else if (want && effectiveStatus(m, now) !== want) return false;
-  if (f.view === "inbox" && !m.needs_response) return false;
+  if (f.view === "inbox" && (!m.needs_response || m.type === "feedback")) return false;
   if (skip !== "where" && f.where !== "all" && m.surface !== f.where) return false;
   if (skip !== "brand" && f.brand && m.brand_id !== f.brand) return false;
   if (skip !== "platform" && f.platform && m.platform !== f.platform) return false;
@@ -190,7 +191,7 @@ export function filterMentions(
 }
 
 export const inboxCount = (list: Mention[], now = Date.now()) =>
-  list.filter((m) => m.needs_response && effectiveStatus(m, now) === "inbox").length;
+  list.filter((m) => m.needs_response && m.type !== "feedback" && effectiveStatus(m, now) === "inbox").length;
 
 /** Open = directed at the brand and not yet resolved by the team or the brand. */
 const isOpen = (m: Mention, now: number) => {

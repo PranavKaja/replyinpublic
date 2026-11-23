@@ -1,7 +1,11 @@
 # Caddyfile for ReplyInPublic (Vultr deployment)
 # Automatic Let's Encrypt TLS certificate for your domain
 
-replyinpublic.us, www.replyinpublic.us {
+www.replyinpublic.us {
+    redir https://replyinpublic.us{uri} permanent
+}
+
+replyinpublic.us {
     reverse_proxy localhost:8765
 
     # Security headers

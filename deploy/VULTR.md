@@ -34,6 +34,8 @@ Copy your local `.env` to the server (never commit it):
 scp C:\Users\bpran\replyinpublic\.env root@YOUR_VULTR_IP:/etc/replyinpublic.env
 ```
 
+Our bot's webhook URL and key also belong in that file, as `GROK_WEBHOOK_URL` and `GROK_WEBHOOK_KEY`. The site sends them from the server. They never go in the browser. Handing an approved reply to our bot stays off until you add `BOT_REPLY_HANDOFF=on`, and that line goes in only once the bot is confirmed unable to post.
+
 Add a copilot gate token (any long random string):
 
 ```bash

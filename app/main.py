@@ -9,8 +9,10 @@ import os
 import re
 import threading
 import time
+import urllib.error
 import urllib.request
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
@@ -34,22 +36,121 @@ def db():
 
 
 DIST = ROOT / "web" / "dist"
+PUBLIC = ROOT / "web" / "public"
 app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
 
+_ANSWER_PAGES = {
+    "what-is-replyinpublic",
+    "public-comments-vs-surveys",
+    "how-to-answer-public-comments",
+    "faq",
+}
 
-def _spa() -> FileResponse:
-    return FileResponse(DIST / "index.html", headers={"Cache-Control": "no-cache"})
+
+def _published(rel: str, media_type: str) -> FileResponse:
+    """A public file from web/public, then dist. Rejects anything outside those folders."""
+    if rel.startswith(("/", "\\")) or ".." in Path(rel).parts:
+        raise HTTPException(status_code=404)
+    for base in (PUBLIC, DIST):
+        candidate = (base / rel).resolve()
+        root = base.resolve()
+        if root != candidate and root not in candidate.parents:
+            continue
+        if candidate.is_file():
+            headers = {"Cache-Control": "public, max-age=3600"}
+            if media_type.startswith("text/html"):
+                headers["Content-Language"] = "en"
+                headers["X-Robots-Tag"] = "index, follow"
+            return FileResponse(candidate, media_type=media_type, headers=headers)
+    raise HTTPException(status_code=404)
+
+
+def _spa(path: str = "/") -> HTMLResponse:
+    """The app shell. Inbox and sign in stay out of the index. The homepage does not."""
+    html = (DIST / "index.html").read_text(encoding="utf-8")
+    headers = {"Cache-Control": "no-cache", "Content-Language": "en", "X-Robots-Tag": "index, follow"}
+    if path != "/":
+        url = "https://replyinpublic.us" + path
+        html = html.replace(
+            '<link rel="canonical" href="https://replyinpublic.us/" data-rip="canonical" />',
+            f'<link rel="canonical" href="{url}" data-rip="canonical" />',
+            1,
+        )
+        html = html.replace(
+            '<meta property="og:url" content="https://replyinpublic.us/" data-rip="og-url" />',
+            f'<meta property="og:url" content="{url}" data-rip="og-url" />',
+            1,
+        )
+        html = html.replace(
+            '<meta name="robots" content="index, follow" data-rip="robots" />',
+            '<meta name="robots" content="noindex, follow" data-rip="robots" />',
+            1,
+        )
+        headers["X-Robots-Tag"] = "noindex, follow"
+    return HTMLResponse(html, headers=headers)
 
 
 @app.get("/")
-def home() -> FileResponse:
-    return _spa()
+def home() -> HTMLResponse:
+    return _spa("/")
 
 
 @app.get("/inbox")
+def inbox_page() -> HTMLResponse:
+    return _spa("/inbox")
+
+
 @app.get("/login")
-def inbox_page() -> FileResponse:
-    return _spa()
+def login_page() -> HTMLResponse:
+    return _spa("/login")
+
+
+@app.get("/robots.txt")
+def robots_txt() -> FileResponse:
+    return _published("robots.txt", "text/plain; charset=utf-8")
+
+
+@app.get("/sitemap.xml")
+def sitemap_xml() -> FileResponse:
+    return _published("sitemap.xml", "application/xml; charset=utf-8")
+
+
+@app.get("/llms.txt")
+def llms_txt() -> FileResponse:
+    return _published("llms.txt", "text/plain; charset=utf-8")
+
+
+@app.get("/llms-full.txt")
+def llms_full_txt() -> FileResponse:
+    return _published("llms-full.txt", "text/plain; charset=utf-8")
+
+
+@app.get("/og.png")
+def og_png() -> FileResponse:
+    return _published("og.png", "image/png")
+
+
+@app.get("/logo.png")
+def logo_png() -> FileResponse:
+    return _published("logo.png", "image/png")
+
+
+@app.get("/answers/answers.css")
+def answers_css() -> FileResponse:
+    return _published("answers/answers.css", "text/css; charset=utf-8")
+
+
+@app.get("/answers")
+@app.get("/answers/")
+def answers_index() -> FileResponse:
+    return _published("answers/index.html", "text/html; charset=utf-8")
+
+
+@app.get("/answers/{page}")
+def answers_page(page: str) -> FileResponse:
+    if page not in _ANSWER_PAGES:
+        raise HTTPException(status_code=404)
+    return _published(f"answers/{page}.html", "text/html; charset=utf-8")
 
 
 @app.get("/favicon.svg")
@@ -70,13 +171,19 @@ def old_workspace_links() -> RedirectResponse:
 
 
 @app.get("/old", response_class=HTMLResponse)
-def old_landing() -> str:
-    return (ROOT / "app" / "landing.html").read_text(encoding="utf-8")
+def old_landing() -> HTMLResponse:
+    return HTMLResponse(
+        (ROOT / "app" / "landing.html").read_text(encoding="utf-8"),
+        headers={"X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-cache"},
+    )
 
 
 @app.get("/old/app", response_class=HTMLResponse)
-def old_workspace() -> str:
-    return (ROOT / "app" / "crm.html").read_text(encoding="utf-8")
+def old_workspace() -> HTMLResponse:
+    return HTMLResponse(
+        (ROOT / "app" / "crm.html").read_text(encoding="utf-8"),
+        headers={"X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-cache"},
+    )
 
 
 DESK_STATUSES = {"inbox", "parked", "snoozed", "handled", "dismissed", "feedback"}
@@ -189,6 +296,103 @@ async def desk_login(request: Request) -> JSONResponse:
     return response
 
 
+AGENT_SOURCES = {"youtube", "instagram", "tiktok", "x", "reddit"}
+
+
+def _post_agent(payload: dict) -> dict:
+    """Wake the always-on bot. The key stays in the server env."""
+    load_env()
+    url = os.environ.get("GROK_WEBHOOK_URL", "").strip()
+    key = os.environ.get("GROK_WEBHOOK_KEY", "").strip()
+    if not url or not key:
+        raise HTTPException(status_code=503, detail="agent webhook is not configured")
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode(),
+        headers={
+            "Authorization": "Bearer " + key,
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            raw = response.read().decode("utf-8", "replace")
+            status = response.status
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")[:300]
+        raise HTTPException(status_code=502, detail=f"agent webhook returned {exc.code}: {detail}")
+    except urllib.error.URLError as exc:
+        raise HTTPException(status_code=502, detail="agent webhook did not answer")
+    try:
+        body = json.loads(raw) if raw else {}
+    except json.JSONDecodeError:
+        body = {"raw": raw[:300]}
+    return {"ok": status == 200, "run": body}
+
+
+def _bot_replies_on() -> bool:
+    """Handing a reply to our bot stays off until BOT_REPLY_HANDOFF=on is set on the server.
+
+    Set it only once the bot is confirmed unable to post. The site promises that it never posts.
+    """
+    load_env()
+    return os.environ.get("BOT_REPLY_HANDOFF", "").strip().lower() == "on"
+
+
+@app.post("/api/desk/agent")
+async def desk_agent(request: Request) -> dict:
+    """Team only. Pulls mentions, or hands an approved reply to our bot. The bot does not post."""
+    me = _session(request)
+    if me.get("role") != "rip":
+        raise HTTPException(status_code=403, detail="team only")
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    action = str(body.get("action") or "pull").strip().lower()
+    if action == "pull":
+        asked = body.get("brands")
+        if not isinstance(asked, list) or not asked:
+            asked = me["brands"]
+        brands = [b for b in asked if isinstance(b, str) and b in me["brands"]]
+        sources = body.get("sources")
+        if not isinstance(sources, list):
+            sources = []
+        sources = [s for s in sources if isinstance(s, str) and s in AGENT_SOURCES]
+        try:
+            count = int(body.get("count") or 5)
+        except (TypeError, ValueError):
+            count = 5
+        count = max(1, min(count, 10))
+        payload = {
+            "action": "pull",
+            "brands": brands,
+            "sources": sources or ["reddit"],
+            "count": count,
+        }
+    elif action == "reply":
+        if not _bot_replies_on():
+            raise HTTPException(status_code=403, detail="handing replies to our bot is off")
+        url = str(body.get("url") or "").strip()
+        text = str(body.get("text") or "").strip()
+        if not url.startswith("http") or not text:
+            raise HTTPException(status_code=400, detail="url and text required")
+        payload = {
+            "action": "reply",
+            "url": url,
+            "text": text[:2000],
+            "platform": str(body.get("platform") or "")[:40],
+            "case_id": str(body.get("case_id") or "")[:80],
+            "post": False,
+        }
+    else:
+        raise HTTPException(status_code=400, detail="action must be pull or reply")
+    return _post_agent(payload)
+
+
 @app.post("/api/desk/logout")
 def desk_logout() -> JSONResponse:
     response = JSONResponse({"ok": True})
@@ -237,7 +441,7 @@ def desk_data(request: Request) -> dict:
                  AND v.video_id = split_part(split_part(m.parent_url, 'v=', 2), '&', 1)
                 LEFT JOIN mention_state s ON s.mention_id = m.id
                 LEFT JOIN mention_themes t ON t.mention_id = m.id
-                WHERE l.type IN ('complaint', 'question', 'purchase_intent')
+                WHERE l.type IN ('complaint', 'question', 'purchase_intent', 'feedback')
                   AND m.brand_id = ANY(%s)
                 ORDER BY m.posted_at DESC
                 LIMIT 1000

@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/overheard/Logo";
 
 export const Route = createFileRoute("/login")({
-  head: () => ({ meta: [{ title: "Sign in | ReplyInPublic" }] }),
+  head: () => ({ meta: [
+    { title: "Sign in | ReplyInPublic" },
+    { name: "robots", content: "noindex, follow" },
+    { name: "description", content: "Sign in to ReplyInPublic to read public customer comments." },
+  ] }),
   component: Login,
 });
 

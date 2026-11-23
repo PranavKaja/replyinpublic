@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { MessageCircle, Inbox, Layers, Check, Globe, CornerDownRight, Bookmark, MousePointer2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,35 @@ const inboxImage = { url: inboxImageUrl };
 import type { Search } from "./inbox";
 
 const description = "ReplyInPublic helps brands move money from satisfaction and feedback surveys to answering the feedback customers already post in public.";
+
+const faqs: [string, string][] = [
+  ["How is this different from a survey?", "A survey starts with a question from the brand. Public feedback starts with the customer. ReplyInPublic gives those unsolicited comments a place in the workflow, so a person can act on what people are already saying."],
+  ["Is it only for comments on our own posts?", "No. The inbox includes comments on brand posts and earned conversations on creator and community posts. You can filter between the two."],
+  ["Does it automatically post replies?", "No. You decide what deserves a reply. The inbox helps you review a comment, keep a draft, track a next step, and open the original conversation. ReplyInPublic does not post the reply."],
+  ["What can I explore in the inbox?", "The live inbox holds real public comments for five kitchen brands: KitchenAid, Nespresso, Breville, Instant Pot, and Ninja. Comments that describe the same issue are grouped. There is a follow up pipeline and a place to keep brand feedback. Opening the inbox requires a sign in."],
+  ["Where do the comments come from?", "YouTube, Instagram, TikTok, X (formerly Twitter), and Reddit. The live workspace is limited to those five brands."],
+  ["Does the site list a price?", "No. ReplyInPublic does not publish a price."],
+];
+
+function FaqJsonLd() {
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.type = "application/ld+json";
+    script.id = "rip-faq-jsonld";
+    script.text = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: faqs.map(([question, answer]) => ({
+        "@type": "Question",
+        name: question,
+        acceptedAnswer: { "@type": "Answer", text: answer },
+      })),
+    });
+    document.head.appendChild(script);
+    return () => script.remove();
+  }, []);
+  return null;
+}
 
 export const Route = createFileRoute("/")({
   validateSearch: (raw: Record<string, unknown>): Search => ({
@@ -22,10 +52,13 @@ export const Route = createFileRoute("/")({
   head: () => ({ meta: [
     { title: "ReplyInPublic | Surveys measure satisfaction. Replies earn it." },
     { name: "description", content: description },
-    { property: "og:title", content: "ReplyInPublic | Replies earn satisfaction" },
+    { property: "og:title", content: "ReplyInPublic | Surveys measure satisfaction. Replies earn it." },
     { property: "og:description", content: description },
+    { property: "og:url", content: "https://replyinpublic.us/" },
+    { property: "og:image", content: "https://replyinpublic.us/og.png" },
     { property: "og:type", content: "website" },
     { name: "twitter:card", content: "summary_large_image" },
+    { name: "twitter:image", content: "https://replyinpublic.us/og.png" },
   ] }),
   component: Home,
 });
@@ -37,6 +70,7 @@ function Brand() {
 function Home() {
   return (
     <div className="public-home saas-home min-h-screen bg-background text-foreground">
+      <FaqJsonLd />
       <header className="home-nav bg-background">
         <div className="mx-auto max-w-7xl px-5 lg:px-10">
           <div className="flex h-[72px] items-center justify-between gap-5 border-b border-border md:h-[88px]">
@@ -45,6 +79,7 @@ function Home() {
                 <a href="#product" className="whitespace-nowrap py-3 transition-colors hover:text-foreground">The product</a>
                 <a href="#approach" className="whitespace-nowrap py-3 transition-colors hover:text-foreground">Why public feedback</a>
                 <a href="#questions" className="py-3 transition-colors hover:text-foreground">FAQs</a>
+                <a href="/answers" className="py-3 transition-colors hover:text-foreground">Answers</a>
               </nav>
           </div>
         </div>
@@ -55,6 +90,7 @@ function Home() {
             <p className="mb-4 inline-flex items-center font-mono text-xs text-home-subtle">HONEST FEEDBACK. PUBLIC TRUST.</p>
             <h1 className="home-headline mx-auto max-w-5xl text-[42px] font-medium leading-[1.12] md:text-[52px] lg:text-[56px]">Surveys measure satisfaction.<br /><span className="home-highlight">Replies earn it.</span></h1>
             <p className="mx-auto mt-4 max-w-[560px] text-base leading-7 text-home-subtle md:text-lg">Your customers already told you what they think.<br className="hidden sm:block" /> Turn the comments they left into conversations that count.</p>
+            <p className="mx-auto mt-3 max-w-[640px] text-sm leading-6 text-home-subtle">ReplyInPublic is the inbox for those public comments. It groups the ones about the same issue, and a person decides what to answer. The product does not post the reply.</p>
             <div className="mt-5 flex flex-wrap items-center justify-center gap-3"><Button asChild size="lg" className="h-12 px-6"><Link to="/inbox">See the live inbox</Link></Button><Button asChild variant="outline" size="lg" className="h-12 bg-background/60 px-6"><a href="#approach">Why replies, not surveys?</a></Button></div>
             <p className="mt-3 text-xs text-home-subtle">Real public comments, behind a sign in.</p>
             <div id="product" className="product-window relative mt-8 overflow-hidden rounded-lg border border-border text-left">
@@ -84,13 +120,8 @@ function Home() {
           </div>
         </section>
         <section id="questions" className="border-t border-border bg-home-surface">
-          <div className="mx-auto grid max-w-7xl gap-10 px-5 py-20 md:grid-cols-[1fr_1.3fr] lg:px-10"><div><p className="home-eyebrow">A FEW GOOD QUESTIONS</p><h2 className="mt-5 text-3xl font-medium">Before you dive in.</h2></div><Accordion type="single" collapsible>
-            {[
-              ["How is this different from a survey?", "A survey starts with a question from the brand. Public feedback starts with the customer. ReplyInPublic gives those unsolicited comments a place in your workflow, so you can act on what people are already saying."],
-              ["Is it only for comments on our own posts?", "No. The inbox includes comments on brand posts and earned conversations on creator and community posts. You can filter between the two."],
-              ["Does it automatically post replies?", "No. You decide what deserves a reply. The inbox helps you review a comment, keep a draft, track a next step and open the original conversation."],
-              ["What can I explore in the inbox?", "Explore real public comments across five brands, grouped issues, a follow up pipeline and brand feedback. You can open the workspace without creating an account."],
-            ].map(([question, answer]) => <AccordionItem value={question ?? ""} key={question}><AccordionTrigger className="py-5 text-base">{question}</AccordionTrigger><AccordionContent className="max-w-xl text-sm leading-7 text-muted-foreground">{answer}</AccordionContent></AccordionItem>)}
+          <div className="mx-auto grid max-w-7xl gap-10 px-5 py-20 md:grid-cols-[1fr_1.3fr] lg:px-10"><div><p className="home-eyebrow">A FEW GOOD QUESTIONS</p><h2 className="mt-5 text-3xl font-medium">Before you dive in.</h2><p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground"><a href="/answers/faq">The same answers, on their own page.</a></p></div><Accordion type="single" collapsible>
+            {faqs.map(([question, answer]) => <AccordionItem value={question} key={question}><AccordionTrigger className="py-5 text-base">{question}</AccordionTrigger><AccordionContent className="max-w-xl text-sm leading-7 text-muted-foreground">{answer}</AccordionContent></AccordionItem>)}
           </Accordion></div>
         </section>
         <section className="home-closing bg-home-ink text-home-on-ink">
@@ -98,7 +129,19 @@ function Home() {
           </div>
         </section>
       </main>
-      <footer className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-5 px-5 py-8 lg:px-10"><Brand /><p className="text-xs text-muted-foreground">Listen in public. Earn it in the replies.</p><Button asChild variant="ghost" size="sm"><Link to="/inbox">Explore the product</Link></Button></footer>
+      <footer className="mx-auto max-w-7xl px-5 py-8 lg:px-10">
+        <div className="flex flex-wrap items-center justify-between gap-5">
+          <Brand />
+          <p className="text-xs text-muted-foreground">Listen in public. Earn it in the replies.</p>
+          <Button asChild variant="ghost" size="sm"><Link to="/inbox">Explore the product</Link></Button>
+        </div>
+        <nav aria-label="Answers" className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
+          <a href="/answers/what-is-replyinpublic" className="hover:text-foreground">What is ReplyInPublic</a>
+          <a href="/answers/public-comments-vs-surveys" className="hover:text-foreground">Public comments vs surveys</a>
+          <a href="/answers/how-to-answer-public-comments" className="hover:text-foreground">How to answer</a>
+          <a href="/answers/faq" className="hover:text-foreground">FAQ</a>
+        </nav>
+      </footer>
     </div>
   );
 }

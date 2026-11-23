@@ -1,0 +1,20 @@
+# ReplyInPublic
+
+> ReplyInPublic is a web inbox for comments customers have already posted in public. It groups comments about the same issue. A person decides what to answer. ReplyInPublic does not post the reply.
+
+ReplyInPublic is for brand teams that want to answer feedback already posted in public, rather than only collecting it through satisfaction and feedback surveys. The live inbox shows real public comments for five kitchen brands: KitchenAid, Nespresso, Breville, Instant Pot, and Ninja. Comments are read from YouTube, Instagram, TikTok, X (formerly Twitter), and Reddit. A comment can be on a brand post or on a creator or community post. Opening the inbox requires a sign in. The site does not publish a price.
+
+## Answers
+
+- [What is ReplyInPublic](https://replyinpublic.us/answers/what-is-replyinpublic): Definition, who it is for, and what it does not do.
+- [Public comments vs surveys](https://replyinpublic.us/answers/public-comments-vs-surveys): How an unsolicited public comment differs from a satisfaction survey.
+- [How to answer public comments](https://replyinpublic.us/answers/how-to-answer-public-comments): Sign in, read the inbox, open the issue, choose the next step.
+- [FAQ](https://replyinpublic.us/answers/faq): Posting, sources, brands, sign in, and price.
+
+## Full text
+
+- [Full text of these answers](https://replyinpublic.us/llms-full.txt): The same pages in one file.
+
+## Product
+
+- [Home](https://replyinpublic.us/): Surveys measure satisfaction. Replies earn it.

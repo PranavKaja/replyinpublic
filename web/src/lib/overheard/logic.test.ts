@@ -120,4 +120,10 @@ describe("feedback for brand", () => {
     expect(_isFeedback({ ...base, status: "handled", is_feedback: false })).toBe(false);
     expect(_isFeedback({ ...base, status: "feedback" })).toBe(true);
   });
+  it("a feedback tag shows on the feedback tab and stays out of the inbox", () => {
+    const tagged = { ...base, id: "fb", type: "feedback", status: "inbox", is_feedback: false };
+    expect(_isFeedback(tagged)).toBe(true);
+    expect(filterMentions([tagged, base], { ...f, view: "feedback" }, now).map((m) => m.id)).toEqual(["fb"]);
+    expect(filterMentions([tagged, base], f, now).map((m) => m.id)).toEqual(["a"]);
+  });
 });

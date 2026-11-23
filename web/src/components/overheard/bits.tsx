@@ -43,7 +43,7 @@ export function Tag({
   );
 }
 
-const TYPE_LABEL: Record<string, string> = { complaint: "complaint", question: "question", purchase_intent: "buyer", praise: "praise", noise: "noise" };
+const TYPE_LABEL: Record<string, string> = { complaint: "complaint", question: "question", purchase_intent: "buyer", praise: "praise", noise: "noise", feedback: "feedback" };
 export function TypeBadge({ type }: { type: string }) {
   const tone = type === "complaint" ? "border-stamp/40 text-stamp" : type === "purchase_intent" ? "border-buyer/40 text-buyer bg-buyer-soft" : "border-border text-muted-foreground";
   return <span className={cn("rounded-full border px-1.5 py-px text-[10px] font-medium uppercase tracking-wide", tone)}>{TYPE_LABEL[type] ?? type}</span>;

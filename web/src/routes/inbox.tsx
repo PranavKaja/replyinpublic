@@ -70,7 +70,7 @@ export const Route = createFileRoute("/inbox")({
       brand: str(s.brand),
       platform: str(s.platform),
       theme: str(s.theme),
-      type: ["purchase_intent", "complaint", "question"].includes(s.type as string) ? str(s.type) : undefined,
+      type: ["purchase_intent", "complaint", "question", "feedback"].includes(s.type as string) ? str(s.type) : undefined,
       reply: (REPLY_STATES as string[]).includes(s.reply as string) ? str(s.reply) : undefined,
       urgency: ["high", "medium", "low"].includes(s.urgency as string) ? str(s.urgency) : undefined,
       q: str(s.q),
@@ -80,20 +80,9 @@ export const Route = createFileRoute("/inbox")({
   },
   head: () => ({
     meta: [
-      { title: "ReplyInPublic: the messages your brands missed" },
-      {
-        name: "description",
-        content:
-          "A calm triage inbox for the customer questions and complaints brands left unanswered on social media.",
-      },
-      { property: "og:title", content: "ReplyInPublic: the messages your brands missed" },
-      {
-        property: "og:description",
-        content:
-          "Triage unanswered complaints, questions and waiting buyers across YouTube, Instagram, X and Reddit.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
+      { title: "Inbox | ReplyInPublic" },
+      { name: "robots", content: "noindex, follow" },
+      { name: "description", content: "Sign in to read public customer comments in the ReplyInPublic inbox." },
     ],
   }),
   loader: async ({ context }) => {

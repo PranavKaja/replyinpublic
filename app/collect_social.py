@@ -133,9 +133,9 @@ def insert_row(conn, row: dict) -> str:
             row,
         )
         saved = cur.fetchone()
-    if not saved:
-        return "old"
-    stamp_case_id(cur, saved[0], row["brand_id"])
+        if not saved:
+            return "old"
+        stamp_case_id(cur, saved[0], row["brand_id"])
     if is_noise(row["text"]):
         save_label(conn, saved[0], saved[1], {
             "type": "noise",

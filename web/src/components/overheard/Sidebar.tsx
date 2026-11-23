@@ -91,7 +91,7 @@ export function Sidebar({ f, set, brands, themes, mentions, counts, me }: Props)
   // What is switched on, in plain words, shown under the button so a closed panel hides nothing.
   const activeNames = [
     f.reply && REPLY_LABEL[f.reply as keyof typeof REPLY_LABEL],
-    f.type && (f.type === "purchase_intent" ? "Buyer" : f.type === "complaint" ? "Complaint" : "Question"),
+    f.type && ({ purchase_intent: "Buyer", complaint: "Complaint", question: "Question", feedback: "Feedback" }[f.type] ?? f.type),
     f.urgency && `${f.urgency[0]?.toUpperCase()}${f.urgency.slice(1)} urgency`,
     f.brand && brands.find((b) => b.id === f.brand)?.name,
     f.theme && themes.find((t) => t.id === f.theme)?.name,
@@ -185,7 +185,7 @@ export function Sidebar({ f, set, brands, themes, mentions, counts, me }: Props)
             )}
             {listView && (
               <Pick label="Tag" value={f.type ?? ""} onChange={(v) => set({ type: v })} all="All tags" counts={count("type")}
-                options={[["complaint", "Complaint"], ["question", "Question"], ["purchase_intent", "Buyer"]]} />
+                options={[["complaint", "Complaint"], ["question", "Question"], ["purchase_intent", "Buyer"], ["feedback", "Feedback"]]} />
             )}
             {listView && (
               <Pick label="Urgency" value={f.urgency ?? ""} onChange={(v) => set({ urgency: v })} all="Any urgency" counts={count("urgency")}

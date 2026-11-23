@@ -1,14 +1,71 @@
-User-agent: Googlebot
+# Public pages are open to search and answer engines.
+# CCBot and Bytespider are training crawlers, not answer engines, so they are blocked.
+# /api/ is the app interface, not a page.
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: GPTBot
 Allow: /
+Disallow: /api/
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /api/
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /api/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /api/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /api/
+
+User-agent: Claude-SearchBot
+Allow: /
+Disallow: /api/
+
+User-agent: anthropic-ai
+Allow: /
+Disallow: /api/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /api/
+
+User-agent: GoogleOther
+Allow: /
+Disallow: /api/
 
 User-agent: Bingbot
 Allow: /
+Disallow: /api/
 
-User-agent: Twitterbot
+User-agent: Applebot
 Allow: /
+Disallow: /api/
 
-User-agent: facebookexternalhit
+User-agent: Applebot-Extended
 Allow: /
+Disallow: /api/
+
+User-agent: meta-externalagent
+Allow: /
+Disallow: /api/
+
+User-agent: Amazonbot
+Allow: /
+Disallow: /api/
 
 User-agent: *
 Allow: /
+Disallow: /api/
+
+Sitemap: https://replyinpublic.us/sitemap.xml
